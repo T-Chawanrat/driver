@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Headset, History, LogOut, UserRound } from "lucide-react";
+import { ChevronRight, Gauge, Headset, History, LogOut, UserRound } from "lucide-react";
 import { useDriverAuth } from "../context/AuthContext";
 import type { Navigate } from "../types/driver";
 
@@ -8,6 +8,8 @@ export default function Menu({ go }: { go: Navigate }) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const name = [driver?.first_name, driver?.last_name].filter(Boolean).join(" ") || driver?.username || "พนักงานขับรถ";
   const items = [
+    { screen: "MILEAGE_OPEN", label: "เปิดไมล์", description: "บันทึกก่อนเริ่มส่งของ", Icon: Gauge },
+    { screen: "MILEAGE_CLOSE", label: "ปิดไมล์", description: "บันทึกเมื่อจบรอบส่งของ", Icon: Gauge },
     { screen: "PROFILE", label: "ข้อมูลผู้ขับ", description: "ข้อมูลบัญชีและคลังที่สังกัด", Icon: UserRound },
     { screen: "JOB_HISTORY", label: "ประวัติงาน", description: "ดูรายการงานที่เสร็จสิ้น", Icon: History },
     { screen: "CONTACT", label: "ติดต่อผู้ดูแล", description: "ช่องทางติดต่อเมื่อมีปัญหา", Icon: Headset },

@@ -1,6 +1,7 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, CheckCircle2, RotateCcw, ScanLine, Truck, X } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, ImagePlus, RotateCcw, ScanLine, Truck, X } from "lucide-react";
 import AxiosInstance from "../services/http";
+import { openCamera } from "../utils/scanner";
 
 type TruckDetail = {
   truck_code?: string;
@@ -22,6 +23,7 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
+  const cameraRequest = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,19 +41,22 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
 
   useEffect(
     () => () => {
-      stream.current?.getTracks().forEach((track) => track.stop());
       if (imageUrl) URL.revokeObjectURL(imageUrl);
     },
     [imageUrl],
   );
 
+  useEffect(() => () => { cameraRequest.current++; stream.current?.getTracks().forEach((track) => track.stop()); }, []);
+
   const closeCamera = () => {
+    cameraRequest.current++;
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
     setCameraOpen(false);
   };
 
   const startCamera = async () => {
+    const request = ++cameraRequest.current;
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError("อุปกรณ์นี้ไม่รองรับการเปิดกล้องผ่านเบราว์เซอร์ กรุณาเปิดด้วย Chrome บนมือถือหรือแท็บเล็ต");
       setCameraOpen(true);
@@ -60,16 +65,13 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
 
     try {
       setCameraError("");
-      stream.current = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      });
+      const cameraStream = await openCamera("photo");
+      if (request !== cameraRequest.current) { cameraStream.getTracks().forEach((track) => track.stop()); return; }
+      stream.current?.getTracks().forEach((track) => track.stop());
+      stream.current = cameraStream;
       setCameraOpen(true);
     } catch {
+      if (request !== cameraRequest.current) return;
       setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่");
       setCameraOpen(true);
     }
@@ -191,30 +193,30 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
           </button>
         </div>
       ) : (
-        <div className="grid gap-2">
+        <div className="flex items-stretch gap-2">
           <button
-            className="grid w-full grid-cols-[54px_1fr_24px] items-center gap-3 rounded-3xl bg-white p-4 text-left shadow-sm active:scale-[.99]"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm active:scale-[.99]"
             type="button"
             onClick={() => void startCamera()}
           >
-            <span className="grid h-[54px] w-[54px] place-items-center rounded-2xl bg-blue-100 text-blue-600">
-              <Camera size={31} strokeWidth={2.2} />
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600">
+              <Camera size={25} />
             </span>
-            <span className="grid gap-1">
-              <b className="text-base text-slate-900">
+            <span className="min-w-0 flex-1">
+              <b className="block text-[15px] text-slate-900">
                 ถ่ายรูปปิดบรรทุก <em className="text-red-500">*</em>
               </b>
-              <small className="text-[15px] font-medium text-slate-600">เปิดกล้องหลังเพื่อถ่ายหลักฐาน 1 รูป</small>
+              <span className="text-sm font-medium text-slate-600">เปิดกล้องถ่ายรูป</span>
             </span>
-            <ScanLine className="text-blue-600" size={24} />
+            <ScanLine className="shrink-0 text-blue-600" size={22} />
           </button>
           <input ref={fileInput} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectTestPhoto} />
           <button
-            className="h-10 rounded-xl text-[15px] font-semibold text-slate-500 underline underline-offset-4"
+            className="flex w-20 shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-blue-700 to-blue-600 px-2 text-sm font-bold text-white shadow-sm active:opacity-90"
             type="button"
             onClick={() => fileInput.current?.click()}
           >
-            เลือกรูป
+            <ImagePlus size={18} /> อัปโหลด
           </button>
         </div>
       )}

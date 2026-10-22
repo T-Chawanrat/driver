@@ -1,7 +1,6 @@
-import { Send, TriangleAlert } from "lucide-react";
+import { ChevronLeft, Send, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import type { Navigate } from "../types/driver";
-import { MockupHeader } from "../components/MockupShared";
 export default function Chat({ go }: { go: Navigate }) {
   const [draft, setDraft] = useState("");
   const [items, setItems] = useState(["รับเรื่องแล้วค่ะ รบกวนรอการติดต่อกลับ"]);
@@ -13,7 +12,13 @@ export default function Chat({ go }: { go: Navigate }) {
   };
   return (
     <>
-      <MockupHeader title="ปัญหาการจัดส่ง" go={go} />
+      <header className="sticky top-0 z-40 grid h-[58px] grid-cols-[38px_1fr_38px] items-center border-b border-slate-200 bg-white px-3.5">
+        <button type="button" onClick={() => go("HOME")} aria-label="กลับหน้าหลัก" className="grid h-9 w-9 place-items-center rounded-full bg-blue-50 text-blue-600 active:bg-blue-100">
+          <ChevronLeft size={24} strokeWidth={3} />
+        </button>
+        <b className="text-center text-[17px] font-bold text-slate-900">ปัญหาการจัดส่ง</b>
+        <span className="h-9 w-9" />
+      </header>
       <section className="grid min-h-[calc(100dvh-130px)] w-full grid-rows-[auto_1fr_auto] bg-slate-50">
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white p-4">
           <TriangleAlert className="text-orange-500" size={20} />

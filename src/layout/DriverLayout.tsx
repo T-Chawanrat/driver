@@ -14,6 +14,8 @@ function pageTitle(screen: DriverScreen) {
   if (screen === "PROFILE") return "ข้อมูลผู้ขับ";
   if (screen === "JOB_HISTORY") return "ประวัติงาน";
   if (screen === "CONTACT") return "ติดต่อผู้ดูแล";
+  if (screen === "MILEAGE_OPEN") return "เปิดไมล์";
+  if (screen === "MILEAGE_CLOSE") return "ปิดไมล์";
   return "ใบรถกระจาย";
 }
 

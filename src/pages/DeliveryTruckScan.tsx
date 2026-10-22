@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, CheckCircle2, ChevronLeft, ScanLine, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ScanLine, Search, X } from "lucide-react";
 import AxiosInstance from "../services/http";
+import { createScanner, openCamera } from "../utils/scanner";
 
-type ScanItem = { serial_id?: number; serial_no?: string };
+type ScanItem = { serial_id?: string; serial_no?: string };
 type RouteWarning = { serialNo: string; routeMissing: boolean };
-type BarcodeDetectorLike = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
-type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
-
-const barcodeDetector = () => (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
 
 export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number; onBack: () => void; onClose: () => void }) {
   const [serial, setSerial] = useState("");
@@ -22,10 +19,6 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
   const [cameraError, setCameraError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const video = useRef<HTMLVideoElement>(null);
-  const stream = useRef<MediaStream | null>(null);
-  const frame = useRef<number | null>(null);
-  const detector = useRef<BarcodeDetectorLike | null>(null);
-  const cameraProcessing = useRef(false);
   const base = "/driver/delivery-trucks";
   const title = "สแกนขึ้นรถกระจาย";
 
@@ -41,20 +34,12 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
   };
 
   const stopCamera = () => {
-    if (frame.current !== null) cancelAnimationFrame(frame.current);
-    frame.current = null;
-    stream.current?.getTracks().forEach((track) => track.stop());
-    stream.current = null;
-    detector.current = null;
-    cameraProcessing.current = false;
     setCameraOpen(false);
   };
 
   useEffect(() => {
     void load();
   }, [id]);
-
-  useEffect(() => () => stopCamera(), []);
 
   const submitSerial = async (serialNo: string, confirmRouteWarning = false) => {
     const trimmedSerial = serialNo.trim();
@@ -82,51 +67,38 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
     }
   };
 
-  const scanCameraFrame = async (): Promise<void> => {
-    if (!video.current || !detector.current || cameraProcessing.current) return;
-    try {
-      const codes = await detector.current.detect(video.current);
-      const scannedSerial = codes[0]?.rawValue?.trim();
-      if (scannedSerial) {
-        cameraProcessing.current = true;
-        stopCamera();
-        await submitSerial(scannedSerial);
-        return;
-      }
-    } catch {
-      // Some frames cannot be read while the camera is still starting.
-    }
-    frame.current = requestAnimationFrame(() => void scanCameraFrame());
-  };
-
-  const startCamera = async () => {
-    setCameraError("");
-    const Detector = barcodeDetector();
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraOpen(true);
-      setCameraError("อุปกรณ์นี้ไม่รองรับการเปิดกล้องผ่านเบราว์เซอร์ กรุณาใช้เครื่องสแกนหรือพิมพ์ SN");
-      return;
-    }
-    if (!Detector) {
-      setCameraOpen(true);
-      setCameraError("เบราว์เซอร์นี้ยังไม่รองรับการอ่านบาร์โค้ดจากกล้อง กรุณาใช้ Chrome บนมือถือหรือเครื่องสแกน");
-      return;
-    }
-    try {
-      const cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
-      stream.current = cameraStream;
-      detector.current = new Detector({ formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code"] });
-      setCameraOpen(true);
-      requestAnimationFrame(async () => {
+  useEffect(() => {
+    if (!cameraOpen) return;
+    let cancelled = false;
+    let stream: MediaStream | undefined;
+    let stopScanning: (() => void) | undefined;
+    const start = async () => {
+      try {
+        const cameraStream = await openCamera("scan");
+        if (cancelled) { cameraStream.getTracks().forEach((track) => track.stop()); return; }
+        stream = cameraStream;
         if (!video.current) return;
         video.current.srcObject = cameraStream;
         await video.current.play();
-        void scanCameraFrame();
-      });
-    } catch {
-      setCameraOpen(true);
-      setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการใช้กล้องแล้วลองใหม่อีกครั้ง");
-    }
+        const stop = await createScanner(video.current, (value) => {
+          if (cancelled) return;
+          cancelled = true;
+          stopCamera();
+          void submitSerial(value);
+        });
+        if (cancelled) stop(); else stopScanning = stop;
+      } catch {
+        stream?.getTracks().forEach((track) => track.stop());
+        if (!cancelled) setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบ HTTPS และสิทธิ์กล้อง แล้วลองใหม่");
+      }
+    };
+    void start();
+    return () => { cancelled = true; stopScanning?.(); stream?.getTracks().forEach((track) => track.stop()); };
+  }, [cameraOpen]);
+
+  const startCamera = () => {
+    setCameraError("");
+    setCameraOpen(true);
   };
 
   return (
@@ -175,24 +147,8 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
               ยิงลบ
             </button>
           </div>
-          <button
-            type="button"
-            className="grid w-full grid-cols-[54px_1fr_24px] items-center gap-3 rounded-3xl bg-white p-4 text-left shadow-sm active:scale-[.99]"
-            onClick={() => void startCamera()}
-          >
-            <span
-              className={`grid h-[54px] w-[54px] place-items-center rounded-2xl ${scanMode === "LOAD" ? "bg-blue-100 text-blue-600" : "bg-orange-100 text-orange-600"}`}
-            >
-              <Camera size={31} strokeWidth={2.2} />
-            </span>
-            <span className="grid gap-1">
-              <b className="text-base font-bold text-slate-900">{scanMode === "LOAD" ? "เปิดกล้องเพื่อยิงขึ้นรถ" : "เปิดกล้องเพื่อยิงลบ"}</b>
-              <small className="text-[15px] font-medium text-slate-600">เล็งกล้องไปที่บาร์โค้ดหรือ QR Code</small>
-            </span>
-            <ScanLine className={scanMode === "LOAD" ? "text-blue-600" : "text-orange-600"} size={24} />
-          </button>
           <form
-            className={`flex rounded-2xl border bg-white p-1 ${scanMode === "LOAD" ? "border-blue-100" : "border-orange-100"}`}
+            className={`flex min-h-[76px] items-center gap-2 rounded-3xl border bg-white p-2 shadow-sm ${scanMode === "LOAD" ? "border-blue-100" : "border-orange-100"}`}
             onSubmit={(event) => {
               event.preventDefault();
               void submitSerial(serial);
@@ -207,11 +163,19 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
               placeholder={scanMode === "LOAD" ? "ยิงหรือพิมพ์ Serial No" : "ยิงลบหรือพิมพ์ Serial No"}
             />
             <button
-              className={`flex h-11 items-center gap-1 rounded-xl px-3 text-[15px] font-bold text-white disabled:bg-slate-300 ${scanMode === "LOAD" ? "bg-blue-600" : "bg-orange-600"}`}
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-bold text-white disabled:bg-slate-300 ${scanMode === "LOAD" ? "bg-blue-600" : "bg-orange-600"}`}
               disabled={saving}
+              aria-label={scanMode === "LOAD" ? "ยิง SN ขึ้นรถ" : "ยิงลบ SN"}
             >
-              <ScanLine size={19} />
-              {scanMode === "LOAD" ? "ยิง SN" : "ยิงลบ"}
+              <Search size={25} strokeWidth={2.2} />
+            </button>
+            <button
+              type="button"
+              onClick={() => void startCamera()}
+              aria-label={scanMode === "LOAD" ? "เปิดกล้องเพื่อยิงขึ้นรถ" : "เปิดกล้องเพื่อยิงลบ"}
+              className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl ${scanMode === "LOAD" ? "bg-blue-100 text-blue-700 active:bg-blue-200" : "bg-orange-100 text-orange-700 active:bg-orange-200"}`}
+            >
+              <ScanLine size={27} strokeWidth={2.2} />
             </button>
           </form>
           <button

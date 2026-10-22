@@ -12,6 +12,10 @@ import MenuJobHistory from "../pages/MenuJobHistory";
 import MenuContact from "../pages/MenuContact";
 import Deliveries from "../pages/Deliveries";
 import RecipientClose from "../pages/RecipientClose";
+import MileageOpen from "../pages/MileageOpen";
+import MileageClose from "../pages/MileageClose";
+import { useDriverAuth } from "../context/AuthContext";
+import { mileageIsOpen } from "../utils/mileageMock";
 import DriverLayout from "../layout/DriverLayout";
 import type { DriverScreen, Navigate } from "../types/driver";
 
@@ -22,6 +26,8 @@ const toNumber = (value?: string) => {
 
 function screenFromPath(pathname: string): DriverScreen {
   if (pathname === "/deliveries") return "DELIVERIES";
+  if (pathname === "/mileage/open") return "MILEAGE_OPEN";
+  if (pathname === "/mileage/close") return "MILEAGE_CLOSE";
   if (pathname === "/mockup/recipient-close" || pathname.startsWith("/mockup/recipient-close/")) return "MOCKUP_RECIPIENT_CLOSE";
   if (pathname === "/menu") return "MENU";
   if (pathname === "/menu/profile") return "PROFILE";
@@ -40,6 +46,8 @@ function pathFor(screen: DriverScreen, id?: number) {
   switch (screen) {
     case "HOME": return "/home";
     case "DELIVERIES": return "/deliveries";
+    case "MILEAGE_OPEN": return "/mileage/open";
+    case "MILEAGE_CLOSE": return "/mileage/close";
     case "MOCKUP_RECIPIENT_CLOSE": return id ? `/mockup/recipient-close/${id}` : "/mockup/recipient-close";
     case "MENU": return "/menu";
     case "PROFILE": return "/menu/profile";
@@ -69,6 +77,8 @@ function CloseRoute() {
 export default function DriverRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { driver } = useDriverAuth();
+  const canDeliver = mileageIsOpen(driver?.id);
   const screen = screenFromPath(location.pathname);
   const go: Navigate = (next, id) => navigate(pathFor(next, id));
   const onBack = () => navigate(-1);
@@ -77,9 +87,11 @@ export default function DriverRoutes() {
     <Routes>
       <Route path="/" element={<RouterRedirect to="/home" replace />} />
       <Route path="/home" element={<Home go={go} />} />
-      <Route path="/deliveries" element={<Deliveries go={go} />} />
-      <Route path="/mockup/recipient-close" element={<RecipientClose />} />
-      <Route path="/mockup/recipient-close/:recipientId" element={<RecipientClose />} />
+      <Route path="/deliveries" element={canDeliver ? <Deliveries go={go} /> : <RouterRedirect to="/mileage/open" replace />} />
+      <Route path="/mockup/recipient-close" element={canDeliver ? <RecipientClose /> : <RouterRedirect to="/mileage/open" replace />} />
+      <Route path="/mockup/recipient-close/:recipientId" element={canDeliver ? <RecipientClose /> : <RouterRedirect to="/mileage/open" replace />} />
+      <Route path="/mileage/open" element={<MileageOpen />} />
+      <Route path="/mileage/close" element={<MileageClose />} />
       <Route path="/menu" element={<Menu go={go} />} />
       <Route path="/menu/profile" element={<MenuProfile />} />
       <Route path="/menu/job-history" element={<MenuJobHistory />} />
