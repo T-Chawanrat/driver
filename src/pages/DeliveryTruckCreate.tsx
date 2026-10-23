@@ -3,6 +3,7 @@ import { CarFront, Route, Truck } from "lucide-react";
 import AxiosInstance from "../services/http";
 import { useDriverAuth } from "../context/AuthContext";
 import type { Navigate } from "../types/driver";
+import SearchableSelect from "../components/SearchableSelect";
 
 type DriverType = "EMPLOYEE" | "CONTRACTOR";
 type RouteOption = { route_id: number; route_code?: string | null; route_name?: string | null };
@@ -84,19 +85,7 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
       ) : (
         <>
           {driverType === "EMPLOYEE" ? (
-            <label className="grid gap-2 text-[15px] font-bold text-slate-700">
-              <span>
-                รถ <em className="text-red-500">*</em>
-              </span>
-              <select className="h-12 rounded-xl border border-slate-200 bg-white px-3 text-[15px] font-medium outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value={vehicle} onChange={(event) => setVehicle(event.target.value)}>
-                <option value="">เลือกรถ</option>
-                {vehicles.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {[item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" · ")}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SearchableSelect label="รถ" required value={vehicle} onChange={setVehicle} placeholder="ค้นหาทะเบียนรถหรือจังหวัด" options={vehicles.map((item) => ({ value: String(item.id), label: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" · "), searchText: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" ") }))} />
           ) : (
             <div className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <small className="text-[13px] font-semibold text-slate-600">รถที่ผูกกับคนขับ</small>
@@ -106,19 +95,7 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
               </b>
             </div>
           )}
-          <label className="grid gap-2 text-[15px] font-bold text-slate-700">
-            <span>
-              สายรถ <em className="text-red-500">*</em>
-            </span>
-            <select className="h-12 rounded-xl border border-slate-200 bg-white px-3 text-[15px] font-medium outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value={route} onChange={(event) => setRoute(event.target.value)}>
-              <option value="">เลือกสายรถ</option>
-              {routes.map((item) => (
-                <option key={item.route_id} value={item.route_id}>
-                  {[item.route_code, item.route_name].filter(Boolean).join(" - ")}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SearchableSelect label="สายรถ" required value={route} onChange={setRoute} placeholder="ค้นหารหัสหรือชื่อสายรถ" options={routes.map((item) => ({ value: String(item.route_id), label: [item.route_code, item.route_name].filter(Boolean).join(" - "), searchText: [item.route_code, item.route_name].filter(Boolean).join(" ") }))} />
           <p className="flex gap-2 rounded-xl bg-blue-50 p-3 text-[15px] font-medium leading-5 text-blue-800">
             <Route size={17} />
             {driverType === "CONTRACTOR" ? "รถของ contractor ถูกผูกไว้แล้ว จึงเลือกเฉพาะสายรถ" : "กรุณาเลือกรถและสายรถก่อนเริ่มสแกนสินค้า"}

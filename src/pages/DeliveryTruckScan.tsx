@@ -5,11 +5,14 @@ import { createScanner, openCamera } from "../utils/scanner";
 
 type ScanItem = { serial_id?: string; serial_no?: string };
 type RouteWarning = { serialNo: string; routeMissing: boolean };
+type TruckDetails = { truck_code: string | null; license_plate: string | null; license_plate_province: string | null; route_code: string | null; route_name: string | null };
 
 export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number; onBack: () => void; onClose: () => void }) {
   const [serial, setSerial] = useState("");
   const [pending, setPending] = useState<ScanItem[]>([]);
   const [loaded, setLoaded] = useState<ScanItem[]>([]);
+  const [truckDetails, setTruckDetails] = useState<TruckDetails | null>(null);
+  const [truckDetailsError, setTruckDetailsError] = useState(false);
   const [activeList, setActiveList] = useState<"loaded" | "pending">("loaded");
   const [scanMode, setScanMode] = useState<"LOAD" | "UNLOAD">("LOAD");
   const [error, setError] = useState("");
@@ -39,6 +42,18 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
 
   useEffect(() => {
     void load();
+  }, [id]);
+
+  useEffect(() => {
+    let active = true;
+    setTruckDetails(null);
+    setTruckDetailsError(false);
+    if (id) {
+      void AxiosInstance.get<{ data: TruckDetails }>(`${base}/${id}`)
+        .then(({ data }) => { if (active) setTruckDetails(data.data); })
+        .catch(() => { if (active) setTruckDetailsError(true); });
+    }
+    return () => { active = false; };
   }, [id]);
 
   const submitSerial = async (serialNo: string, confirmRouteWarning = false) => {
@@ -121,15 +136,24 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
         </section>
       ) : (
         <section className="flex w-full flex-col gap-4 px-4 pb-24 pt-5 sm:px-6">
-          <div className="flex items-center justify-between rounded-3xl bg-gradient-to-br from-blue-700 to-blue-600 p-5 text-white shadow-xl shadow-blue-600/20">
-            <div className="grid gap-1">
-              <small className="text-sm font-semibold text-blue-100">ใบรถกระจาย</small>
-              <b className="text-lg font-bold">สแกนขึ้นรถแล้ว</b>
+          <div className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-600 p-5 text-white shadow-xl shadow-blue-600/20">
+            <div className="flex items-center justify-between gap-3">
+              <div className="grid gap-1">
+                <small className="text-sm font-semibold text-blue-100">ใบรถกระจาย</small>
+                <b className="text-lg font-bold">สแกนขึ้นรถแล้ว</b>
+              </div>
+              <strong className="shrink-0 text-4xl">
+                {loaded.length}
+                <small> SN</small>
+              </strong>
             </div>
-            <strong className="text-4xl">
-              {loaded.length}
-              <small> SN</small>
-            </strong>
+            <div className="mt-4 grid gap-1.5 border-t border-white/20 pt-3 text-sm font-semibold">
+              {truckDetailsError ? <p>ไม่สามารถโหลดข้อมูลใบรถได้</p> : !truckDetails ? <p>กำลังโหลดข้อมูลใบรถ...</p> : <>
+                <p><span className="text-blue-100">เลขใบรถ: </span>{truckDetails.truck_code || "-"}</p>
+                <p><span className="text-blue-100">ทะเบียนรถ: </span>{[truckDetails.license_plate, truckDetails.license_plate_province].filter(Boolean).join(" ") || "-"}</p>
+                <p><span className="text-blue-100">สายรถ: </span>{[truckDetails.route_code, truckDetails.route_name].filter(Boolean).join(" - ") || "-"}</p>
+              </>}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="โหมดยิงสินค้า">
             <button

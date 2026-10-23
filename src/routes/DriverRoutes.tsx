@@ -15,7 +15,8 @@ import RecipientClose from "../pages/RecipientClose";
 import MileageOpen from "../pages/MileageOpen";
 import MileageClose from "../pages/MileageClose";
 import { useDriverAuth } from "../context/AuthContext";
-import { mileageIsOpen } from "../utils/mileageMock";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import AxiosInstance from "../services/http";
 import DriverLayout from "../layout/DriverLayout";
 import type { DriverScreen, Navigate } from "../types/driver";
 
@@ -78,7 +79,28 @@ export default function DriverRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
   const { driver } = useDriverAuth();
-  const canDeliver = mileageIsOpen(driver?.id);
+  const [mileage, setMileage] = useState<{ id: number; license_plate: string | null; license_plate_province: string | null } | null>(null);
+  const [mileageLoading, setMileageLoading] = useState(true);
+  const [mileageError, setMileageError] = useState("");
+  const refreshMileage = useCallback(async () => {
+    setMileageLoading(true);
+    setMileageError("");
+    try {
+      const { data } = await AxiosInstance.get("/driver/mileage/current");
+      setMileage(data.data || null);
+    } catch {
+      setMileageError("ไม่สามารถตรวจสอบสถานะไมล์ได้ กรุณาลองใหม่");
+    } finally {
+      setMileageLoading(false);
+    }
+  }, []);
+  useEffect(() => { void refreshMileage(); }, [driver?.id, refreshMileage]);
+  const canDeliver = Boolean(mileage);
+  const protectedPage = (page: ReactNode) => mileageLoading
+    ? <p className="p-4">กำลังตรวจสอบสถานะไมล์...</p>
+    : mileageError
+      ? <div className="p-4"><p className="text-red-600">{mileageError}</p><button type="button" onClick={() => void refreshMileage()} className="mt-3 rounded-xl bg-blue-600 px-4 py-2 font-bold text-white">ลองอีกครั้ง</button></div>
+      : canDeliver ? page : <RouterRedirect to="/mileage/open" replace />;
   const screen = screenFromPath(location.pathname);
   const go: Navigate = (next, id) => navigate(pathFor(next, id));
   const onBack = () => navigate(-1);
@@ -87,11 +109,11 @@ export default function DriverRoutes() {
     <Routes>
       <Route path="/" element={<RouterRedirect to="/home" replace />} />
       <Route path="/home" element={<Home go={go} />} />
-      <Route path="/deliveries" element={canDeliver ? <Deliveries go={go} /> : <RouterRedirect to="/mileage/open" replace />} />
-      <Route path="/mockup/recipient-close" element={canDeliver ? <RecipientClose /> : <RouterRedirect to="/mileage/open" replace />} />
-      <Route path="/mockup/recipient-close/:recipientId" element={canDeliver ? <RecipientClose /> : <RouterRedirect to="/mileage/open" replace />} />
-      <Route path="/mileage/open" element={<MileageOpen />} />
-      <Route path="/mileage/close" element={<MileageClose />} />
+      <Route path="/deliveries" element={protectedPage(<Deliveries go={go} />)} />
+      <Route path="/mockup/recipient-close" element={protectedPage(<RecipientClose />)} />
+      <Route path="/mockup/recipient-close/:recipientId" element={protectedPage(<RecipientClose />)} />
+      <Route path="/mileage/open" element={<MileageOpen mileage={mileage} loading={mileageLoading} loadError={mileageError} refresh={refreshMileage} />} />
+      <Route path="/mileage/close" element={<MileageClose mileage={mileage} loading={mileageLoading} loadError={mileageError} refresh={refreshMileage} />} />
       <Route path="/menu" element={<Menu go={go} />} />
       <Route path="/menu/profile" element={<MenuProfile />} />
       <Route path="/menu/job-history" element={<MenuJobHistory />} />

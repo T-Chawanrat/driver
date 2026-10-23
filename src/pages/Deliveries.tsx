@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, MapPin, Package, Phone, ScanLine, Search, TriangleAlert, Truck, X } from "lucide-react";
+import { ChevronRight, Gauge, MapPin, Package, Phone, ScanLine, Search, TriangleAlert, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getDeliveries } from "../services/deliveries";
 import type { Navigate } from "../types/driver";
@@ -108,7 +108,10 @@ export default function Deliveries(_props: { go: Navigate }) {
       <div className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-600 p-5 text-white shadow-xl shadow-blue-600/20">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-bold">รายการสินค้าบนรถ</h1>
-          <Truck size={32} strokeWidth={1.8} aria-hidden="true" />
+          <button type="button" onClick={() => navigate("/mileage/close")} className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-white/40 bg-white/15 px-3 text-sm font-bold text-white active:bg-white/25">
+            <Gauge size={19} aria-hidden="true" />
+            ปิดไมล์
+          </button>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/20 pt-4 text-center">
           <div>
