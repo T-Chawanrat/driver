@@ -17,6 +17,8 @@ export default function RecipientClose() {
   const bills = useMemo(() => (realRecipient?.bills ?? []).map((bill) => ({
         key: bill.key,
         receiveCode: bill.receiveCode,
+        receiveBusinessId: bill.receiveBusinessId,
+        receiveWalkinId: bill.receiveWalkinId,
         remarks: bill.remarks ?? [],
         media: bill.media ?? { proof: [], signatures: [] },
         serials: bill.serials.map((serial) => ({ key: JSON.stringify([serial.id, serial.serialNo]), serialNo: serial.serialNo, completed: serial.completed })),
@@ -39,7 +41,6 @@ export default function RecipientClose() {
   );
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
-  const [issueBill, setIssueBill] = useState("");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [photoError, setPhotoError] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -239,6 +240,17 @@ export default function RecipientClose() {
     drawing.current = false;
     setHasSignature(false);
   };
+  const openIssueReason = (bill: { receiveCode: string; receiveBusinessId: number | null; receiveWalkinId: number | null }) => {
+    navigate("/issues/new", {
+      state: {
+        deliveryIssueDraft: {
+          receiveCode: bill.receiveCode,
+          receiveBusinessId: bill.receiveBusinessId,
+          receiveWalkinId: bill.receiveWalkinId,
+        },
+      },
+    });
+  };
   const selectedSet = new Set(selected);
   const selectedBills = bills.filter((bill) => bill.serials.some((serial) => selectedSet.has(serial.key)));
   const selectedBillCount = selectedBills.length;
@@ -271,7 +283,7 @@ export default function RecipientClose() {
         body.append("accuracy_m", String(position.coords.accuracy));
       }
       await AxiosInstance.post("/driver/deliveries/complete", body);
-      navigate("/deliveries", { replace: true });
+      navigate("/recipients", { replace: true });
     } catch (error: any) {
       setNotice(error?.response?.data?.message || error?.message || "ไม่สามารถบันทึกการจัดส่งได้");
     } finally { setSaving(false); }
@@ -292,7 +304,7 @@ export default function RecipientClose() {
     return (
       <section className="px-4 py-5">
         <p className="rounded-xl bg-white p-4 text-center text-[15px] font-semibold text-slate-600">ไม่พบข้อมูลผู้รับ กรุณากลับไปเลือกรายการอีกครั้ง</p>
-        <button type="button" onClick={() => navigate("/deliveries")} className="mt-3 w-full rounded-xl bg-blue-600 p-3 font-bold text-white">กลับไปรายการส่งของ</button>
+        <button type="button" onClick={() => navigate("/recipients")} className="mt-3 w-full rounded-xl bg-blue-600 p-3 font-bold text-white">กลับไปรายการส่งของ</button>
       </section>
     );
 
@@ -417,17 +429,12 @@ export default function RecipientClose() {
               </div>
               <button
                 type="button"
-                onClick={() => setIssueBill(bill.key)}
+                onClick={() => openIssueReason(bill)}
                 className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-[15px] font-bold text-red-600"
               >
                 <TriangleAlert size={18} />
                 แจ้งปัญหาบิลนี้
               </button>
-              {issueBill === bill.key && (
-                <p role="status" className="mt-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-                  ตัวอย่างแจ้งปัญหาสำหรับบิล {bill.receiveCode} — ยังไม่ได้บันทึกข้อมูลจริง
-                </p>
-              )}
             </article>
           );
         })}

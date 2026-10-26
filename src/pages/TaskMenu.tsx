@@ -3,7 +3,7 @@ import { useDriverAuth } from "../context/AuthContext";
 import type { Navigate } from "../types/driver";
 
 type TaskMenuItem = {
-  screen: "JOBS" | "DELIVERIES" | "MOCKUP_CHAT";
+  screen: "JOBS" | "DELIVERIES" | "ISSUES";
   title: string;
   description: string;
   Icon: typeof Truck;
@@ -13,7 +13,7 @@ type TaskMenuItem = {
 const menuItems: TaskMenuItem[] = [
   { screen: "JOBS", title: "รับงาน / ขึ้นรถ", description: "สร้าง DT และสแกนของขึ้นรถ", Icon: PackageCheck },
   { screen: "DELIVERIES", title: "ไปส่งลูกค้า", description: "ดูรายการสินค้าและผู้รับ", Icon: Truck },
-  { screen: "MOCKUP_CHAT", title: "ปัญหาการจัดส่ง", description: "แจ้งปัญหา แชทกับทีมควบคุม", Icon: CircleAlert, tone: "warning" },
+  { screen: "ISSUES", title: "ปัญหาการจัดส่ง", description: "แจ้งปัญหา แชทกับทีมควบคุม", Icon: CircleAlert, tone: "warning" },
 ];
 
 export default function TaskMenu({ go }: { go: Navigate }) {

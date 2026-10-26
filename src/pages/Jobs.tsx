@@ -38,7 +38,7 @@ export default function Jobs({ go }: { go: Navigate }) {
   }, []);
 
   return (
-    <section className="flex w-full flex-col gap-4 px-4 pb-24 pt-5 sm:px-6">
+    <section className="flex h-[calc(100dvh-130px)] w-full flex-col gap-4 px-4 pt-5 sm:px-6">
       <button
         className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-blue-700 to-blue-600 text-base font-extrabold text-white shadow-lg shadow-blue-600/20"
         onClick={() => go("DELIVERY_CREATE")}
@@ -54,7 +54,8 @@ export default function Jobs({ go }: { go: Navigate }) {
       ) : trucks.length === 0 ? (
         <p className="rounded-xl bg-slate-50 p-4 text-center text-[15px] font-medium text-slate-500">ยังไม่มีใบรถของคุณ</p>
       ) : (
-        <div className="grid gap-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">
+          <div className="grid gap-4">
         {trucks.map((truck) => {
           const isTruckload = truck.status === "DC_TRUCK_DC";
           const details = isTruckload
@@ -92,6 +93,7 @@ export default function Jobs({ go }: { go: Navigate }) {
             </button>
           );
         })}
+          </div>
         </div>
       )}
     </section>

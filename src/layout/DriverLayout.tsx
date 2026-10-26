@@ -9,7 +9,7 @@ function pageTitle(screen: DriverScreen) {
   if (screen === "JOBS") return "งานของฉัน";
   if (screen === "DELIVERIES") return "ส่งของ";
   if (screen === "CLOSE") return "ปิดบรรทุกและออกนำจ่าย";
-  if (screen === "MOCKUP_RECIPIENT_CLOSE") return "ปิดงานจัดส่ง";
+  if (screen === "RECIPIENT_CLOSE") return "ปิดงานจัดส่ง";
   if (screen === "MENU") return "เมนู";
   if (screen === "PROFILE") return "ข้อมูลผู้ขับ";
   if (screen === "JOB_HISTORY") return "ประวัติงาน";
@@ -20,10 +20,10 @@ function pageTitle(screen: DriverScreen) {
 }
 
 export default function DriverLayout({ children, go, onBack, screen }: DriverLayoutProps) {
-  const showTopbar = screen !== "DELIVERY_SCAN" && screen !== "MOCKUP_CHAT";
+  const showTopbar = screen !== "DELIVERY_SCAN" && screen !== "ISSUES";
   const isTaskScreen = ["JOBS", "DELIVERY_CREATE", "DELIVERY_SCAN"].includes(screen);
-  const isDeliveryScreen = ["DELIVERIES", "MOCKUP_RECIPIENT_CLOSE"].includes(screen);
-  const isIssueScreen = screen === "MOCKUP_CHAT";
+  const isDeliveryScreen = ["DELIVERIES", "RECIPIENT_CLOSE"].includes(screen);
+  const isIssueScreen = screen === "ISSUES";
 
   return (
     <main className="relative mx-auto min-h-dvh w-full max-w-[760px] bg-slate-50 pb-[72px]">
@@ -70,7 +70,7 @@ export default function DriverLayout({ children, go, onBack, screen }: DriverLay
         </button>
         <button
           type="button"
-          onClick={() => go("MOCKUP_CHAT")}
+          onClick={() => go("ISSUES")}
           className={`grid content-center justify-items-center gap-1 text-[11px] font-semibold ${isIssueScreen ? "text-blue-600" : "text-slate-500"}`}
         >
           <TriangleAlert size={30} />

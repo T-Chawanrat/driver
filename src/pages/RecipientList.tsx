@@ -7,7 +7,7 @@ import { createScanner, openCamera } from "../utils/scanner";
 import type { Deliveries } from "../types/delivery";
 
 
-export default function Deliveries(_props: { go: Navigate }) {
+export default function RecipientList(_props: { go: Navigate }) {
   const navigate = useNavigate();
   const [deliveries, setDeliveries] = useState<Deliveries | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,7 @@ export default function Deliveries(_props: { go: Navigate }) {
     );
     if (matches.length === 1) {
       const { recipient, item } = matches[0];
-      navigate("/mockup/recipient-close", { state: { deliveryRecipient: recipient, selectedSerialKey: JSON.stringify([item.id, item.serialNo]) } });
+      navigate("/recipient-close", { state: { deliveryRecipient: recipient, selectedSerialKey: JSON.stringify([item.id, item.serialNo]) } });
     } else {
       setSearchError(matches.length ? "พบ SN ซ้ำหลายรายการ กรุณาตรวจสอบและเลือกผู้รับ" : "ไม่พบ SN นี้ในรายการสินค้าที่กำลังนำจ่าย");
     }
@@ -209,7 +209,7 @@ export default function Deliveries(_props: { go: Navigate }) {
           <button
             key={recipient.key}
             type="button"
-            onClick={() => navigate("/mockup/recipient-close", { state: { deliveryRecipient: recipient } })}
+            onClick={() => navigate("/recipient-close", { state: { deliveryRecipient: recipient } })}
             className="flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm active:bg-slate-50"
           >
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">

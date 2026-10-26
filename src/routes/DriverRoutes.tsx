@@ -4,14 +4,16 @@ import DeliveryTruckCreate from "../pages/DeliveryTruckCreate";
 import DeliveryTruckScan from "../pages/DeliveryTruckScan";
 import Home from "../pages/Home";
 import Jobs from "../pages/Jobs";
-import Chat from "../pages/Chat";
+import IssueChat from "../pages/IssueChat";
+import IssueInbox from "../pages/IssueInbox";
 import TaskMenu from "../pages/TaskMenu";
 import Menu from "../pages/Menu";
 import MenuProfile from "../pages/MenuProfile";
 import MenuJobHistory from "../pages/MenuJobHistory";
 import MenuContact from "../pages/MenuContact";
-import Deliveries from "../pages/Deliveries";
+import RecipientList from "../pages/RecipientList";
 import RecipientClose from "../pages/RecipientClose";
+import IssueReason from "../pages/IssueReason";
 import MileageOpen from "../pages/MileageOpen";
 import MileageClose from "../pages/MileageClose";
 import { useDriverAuth } from "../context/AuthContext";
@@ -26,40 +28,40 @@ const toNumber = (value?: string) => {
 };
 
 function screenFromPath(pathname: string): DriverScreen {
-  if (pathname === "/deliveries") return "DELIVERIES";
+  if (pathname === "/recipients") return "DELIVERIES";
   if (pathname === "/mileage/open") return "MILEAGE_OPEN";
   if (pathname === "/mileage/close") return "MILEAGE_CLOSE";
-  if (pathname === "/mockup/recipient-close" || pathname.startsWith("/mockup/recipient-close/")) return "MOCKUP_RECIPIENT_CLOSE";
+  if (pathname === "/recipient-close" || pathname.startsWith("/recipient-close/")) return "RECIPIENT_CLOSE";
   if (pathname === "/menu") return "MENU";
   if (pathname === "/menu/profile") return "PROFILE";
   if (pathname === "/menu/job-history") return "JOB_HISTORY";
   if (pathname === "/menu/contact") return "CONTACT";
   if (pathname === "/jobs") return "JOBS";
   if (pathname === "/work-menu") return "WORK_MENU";
-  if (pathname === "/delivery-trucks/create") return "DELIVERY_CREATE";
+  if (pathname === "/trucks/create") return "DELIVERY_CREATE";
   if (pathname.endsWith("/close")) return "CLOSE";
-  if (pathname.includes("/delivery-trucks/")) return "DELIVERY_SCAN";
-  if (pathname === "/mockup/chat") return "MOCKUP_CHAT";
+  if (pathname.includes("/trucks/")) return "DELIVERY_SCAN";
+  if (pathname === "/issues" || pathname.startsWith("/issues/")) return "ISSUES";
   return "HOME";
 }
 
 function pathFor(screen: DriverScreen, id?: number) {
   switch (screen) {
     case "HOME": return "/home";
-    case "DELIVERIES": return "/deliveries";
+    case "DELIVERIES": return "/recipients";
     case "MILEAGE_OPEN": return "/mileage/open";
     case "MILEAGE_CLOSE": return "/mileage/close";
-    case "MOCKUP_RECIPIENT_CLOSE": return id ? `/mockup/recipient-close/${id}` : "/mockup/recipient-close";
+    case "RECIPIENT_CLOSE": return id ? `/recipient-close/${id}` : "/recipient-close";
     case "MENU": return "/menu";
     case "PROFILE": return "/menu/profile";
     case "JOB_HISTORY": return "/menu/job-history";
     case "CONTACT": return "/menu/contact";
     case "WORK_MENU": return "/work-menu";
     case "JOBS": return "/jobs";
-    case "DELIVERY_CREATE": return "/delivery-trucks/create";
-    case "DELIVERY_SCAN": return id ? `/delivery-trucks/${id}/scan` : "/jobs";
-    case "CLOSE": return id ? `/delivery-trucks/${id}/close` : "/jobs";
-    case "MOCKUP_CHAT": return "/mockup/chat";
+    case "DELIVERY_CREATE": return "/trucks/create";
+    case "DELIVERY_SCAN": return id ? `/trucks/${id}/scan` : "/jobs";
+    case "CLOSE": return id ? `/trucks/${id}/close` : "/jobs";
+    case "ISSUES": return "/issues";
     default: return "/home";
   }
 }
@@ -109,9 +111,9 @@ export default function DriverRoutes() {
     <Routes>
       <Route path="/" element={<RouterRedirect to="/home" replace />} />
       <Route path="/home" element={<Home go={go} />} />
-      <Route path="/deliveries" element={protectedPage(<Deliveries go={go} />)} />
-      <Route path="/mockup/recipient-close" element={protectedPage(<RecipientClose />)} />
-      <Route path="/mockup/recipient-close/:recipientId" element={protectedPage(<RecipientClose />)} />
+      <Route path="/recipients" element={protectedPage(<RecipientList go={go} />)} />
+      <Route path="/recipient-close" element={protectedPage(<RecipientClose />)} />
+      <Route path="/recipient-close/:recipientId" element={protectedPage(<RecipientClose />)} />
       <Route path="/mileage/open" element={<MileageOpen mileage={mileage} loading={mileageLoading} loadError={mileageError} refresh={refreshMileage} />} />
       <Route path="/mileage/close" element={<MileageClose mileage={mileage} loading={mileageLoading} loadError={mileageError} refresh={refreshMileage} />} />
       <Route path="/menu" element={<Menu go={go} />} />
@@ -120,10 +122,12 @@ export default function DriverRoutes() {
       <Route path="/menu/contact" element={<MenuContact />} />
       <Route path="/work-menu" element={<TaskMenu go={go} />} />
       <Route path="/jobs" element={<Jobs go={go} />} />
-      <Route path="/delivery-trucks/create" element={<DeliveryTruckCreate go={go} />} />
-      <Route path="/delivery-trucks/:truckLoadId/scan" element={<ScanRoute go={go} onBack={onBack} />} />
-      <Route path="/delivery-trucks/:truckLoadId/close" element={<CloseRoute />} />
-      <Route path="/mockup/chat" element={<Chat go={go} />} />
+      <Route path="/trucks/create" element={<DeliveryTruckCreate go={go} />} />
+      <Route path="/trucks/:truckLoadId/scan" element={<ScanRoute go={go} onBack={onBack} />} />
+      <Route path="/trucks/:truckLoadId/close" element={<CloseRoute />} />
+      <Route path="/issues" element={<IssueInbox />} />
+      <Route path="/issues/new" element={protectedPage(<IssueReason />)} />
+      <Route path="/issues/:deliveryIssueId" element={protectedPage(<IssueChat />)} />
       <Route path="*" element={<RouterRedirect to="/home" replace />} />
     </Routes>
   </DriverLayout>;

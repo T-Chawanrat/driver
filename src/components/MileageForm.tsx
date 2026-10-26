@@ -30,6 +30,7 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
   const [locationMessage, setLocationMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const photoUrls = useRef(new Set<string>());
   const video = useRef<HTMLVideoElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -135,7 +136,7 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
     try {
       await AxiosInstance.post(mode === "open" ? "/driver/mileage/open" : `/driver/mileage/${currentMileage!.id}/close`, form);
       await refresh();
-      navigate(mode === "open" ? "/deliveries" : "/menu", { replace: true });
+      navigate(mode === "open" ? "/recipients" : "/menu", { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || "ไม่สามารถบันทึกข้อมูลไมล์ได้ กรุณาลองใหม่");
     } finally {
@@ -188,9 +189,19 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
         <div className="mt-3 grid grid-cols-3 gap-2">{photos.map((photo) => <div key={photo.url} className="relative aspect-square"><img src={photo.url} alt="รูปไมล์" className="h-full w-full rounded-xl object-cover" /><button type="button" onClick={() => { URL.revokeObjectURL(photo.url); photoUrls.current.delete(photo.url); setPhotos((current) => current.filter((item) => item.url !== photo.url)); }} aria-label="ลบรูป" className="absolute right-1 top-1 grid h-8 w-8 place-items-center rounded-full bg-slate-900/70 text-white"><X size={18} /></button></div>)}</div>
       </div>
       {loadError && <div className="text-sm text-red-600">{loadError} <button type="button" className="font-bold underline" onClick={() => void refresh()}>ลองอีกครั้ง</button></div>}
-      <button type="button" onClick={() => void submit()} disabled={!photos.length || loading || saving || Boolean(loadError) || (mode === "open" ? isOpen : !isOpen)} className="min-h-12 rounded-2xl bg-blue-600 px-4 text-base font-bold text-white disabled:bg-slate-300">{saving ? "กำลังบันทึก..." : mode === "open" ? "ยืนยันเปิดไมล์" : "ยืนยันปิดไมล์"}</button>
-      {isOpen && mode === "open" && <button type="button" onClick={() => navigate("/deliveries")} className="min-h-12 rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-700">ไปหน้าส่งของ</button>}
+      <button type="button" onClick={() => setConfirmOpen(true)} disabled={!photos.length || (mode === "open" && !vehicleId) || loading || saving || Boolean(loadError) || (mode === "open" ? isOpen : !isOpen)} className="min-h-12 rounded-2xl bg-blue-600 px-4 text-base font-bold text-white disabled:bg-slate-300">{saving ? "กำลังบันทึก..." : mode === "open" ? "ยืนยันเปิดไมล์" : "ยืนยันปิดไมล์"}</button>
+      {isOpen && mode === "open" && <button type="button" onClick={() => navigate("/recipients")} className="min-h-12 rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-700">ไปหน้าส่งของ</button>}
       {!isOpen && mode === "close" && <button type="button" onClick={() => navigate("/mileage/open")} className="min-h-12 rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-700">ไปหน้าเปิดไมล์</button>}
+      {confirmOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 px-5" role="dialog" aria-modal="true" aria-labelledby="mileage-confirm-title">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+          <h2 id="mileage-confirm-title" className="text-lg font-bold text-slate-900">{mode === "open" ? "เปิดไมล์" : "ปิดไมล์"}</h2>
+          <p className="mt-2 text-sm font-medium text-slate-600">{mode === "open" ? "ยืนยันเปิดไมล์" : "ยืนยันปิดไมล์"}</p>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => setConfirmOpen(false)} disabled={saving} className="h-12 rounded-xl border border-slate-200 font-bold text-slate-700 disabled:opacity-50">ยกเลิก</button>
+            <button type="button" onClick={() => { setConfirmOpen(false); void submit(); }} disabled={saving} className="h-12 rounded-xl bg-blue-600 font-bold text-white disabled:bg-slate-300">ยืนยัน</button>
+          </div>
+        </div>
+      </div>}
       {cameraOpen && <div className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label="ถ่ายรูปไมล์">
         <div className="flex items-center justify-between p-5"><b>ถ่ายรูป{mode === "open" ? "เปิดไมล์" : "ปิดไมล์"}</b><button type="button" onClick={() => setCameraOpen(false)} aria-label="ปิดกล้อง" className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><X size={22} /></button></div>
         {cameraError ? <p className="self-center px-8 text-center text-amber-300">{cameraError}</p> : <video ref={video} muted playsInline className="h-full min-h-0 w-full object-contain" />}
