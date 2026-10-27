@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Gauge, MapPin, Package, Phone, ScanLine, Search, TriangleAlert, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getDeliveries } from "../services/deliveries";
 import type { Navigate } from "../types/driver";
 import { createScanner, openCamera } from "../utils/scanner";
-import type { Deliveries } from "../types/delivery";
+import type { Deliveries, DeliveryRecipient } from "../types/delivery";
 
 
 export default function RecipientList(_props: { go: Navigate }) {
@@ -13,30 +13,48 @@ export default function RecipientList(_props: { go: Navigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [serial, setSerial] = useState("");
-  const [searchedSerial, setSearchedSerial] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [searchError, setSearchError] = useState("");
   const video = useRef<HTMLVideoElement>(null);
   const searchRef = useRef<(value: string) => void>(() => {});
-
-  searchRef.current = (value: string) => {
-    const searched = value.trim();
-    if (!searched || !deliveries) return;
-    setSerial(searched);
-    setSearchedSerial(searched);
-    const matches = deliveries.recipients.flatMap((recipient) =>
-      recipient.bills.flatMap((bill) =>
-        bill.serials.filter((item) => !item.completed && item.serialNo.trim().toLocaleUpperCase() === searched.toLocaleUpperCase()).map((item) => ({ recipient, item })),
-      ),
-    );
-    if (matches.length === 1) {
-      const { recipient, item } = matches[0];
-      navigate("/recipient-close", { state: { deliveryRecipient: recipient, selectedSerialKey: JSON.stringify([item.id, item.serialNo]) } });
-    } else {
-      setSearchError(matches.length ? "พบ SN ซ้ำหลายรายการ กรุณาตรวจสอบและเลือกผู้รับ" : "ไม่พบ SN นี้ในรายการสินค้าที่กำลังนำจ่าย");
-    }
+  const openRecipient = (recipient: DeliveryRecipient, selectedSerialKey?: string) => {
+    const bill = recipient.bills[0];
+    const params = new URLSearchParams();
+    if (recipient.recipientDetailId) params.set("recipient_detail_id", String(recipient.recipientDetailId));
+    else if (bill?.receiveBusinessId) params.set("receive_business_id", String(bill.receiveBusinessId));
+    else if (bill?.receiveWalkinId) params.set("receive_walkin_id", String(bill.receiveWalkinId));
+    navigate(`/recipient-close?${params.toString()}`, { state: { deliveryRecipient: recipient, selectedSerialKey } });
   };
+  const serialIndex = useMemo(() => {
+    const index = new Map<string, { recipient: Deliveries["recipients"][number]; selectedSerialKey: string }>();
+    for (const recipient of deliveries?.recipients || []) {
+      for (const bill of recipient.bills) {
+        for (const item of bill.serials) {
+          if (item.completed) continue;
+          index.set(item.serialNo.trim().toLocaleUpperCase(), {
+            recipient,
+            selectedSerialKey: JSON.stringify([item.id, item.serialNo]),
+          });
+        }
+      }
+    }
+    return index;
+  }, [deliveries]);
+
+  const searchSerial = (value: string) => {
+    const searched = value.trim();
+    if (!searched) return;
+    setSerial(searched);
+    setSearchError("");
+    const match = serialIndex.get(searched.toLocaleUpperCase());
+    if (!match) {
+      setSearchError("ไม่พบ SN นี้ในรายการสินค้าที่กำลังนำจ่าย");
+      return;
+    }
+    openRecipient(match.recipient, match.selectedSerialKey);
+  };
+  searchRef.current = searchSerial;
 
   useEffect(() => {
     if (!cameraOpen) return;
@@ -96,12 +114,7 @@ export default function RecipientList(_props: { go: Navigate }) {
     };
   }, []);
 
-  const recipients = deliveries?.recipients ?? [];
-  const visibleRecipients = searchedSerial
-    ? recipients.filter((recipient) =>
-        recipient.bills.some((bill) => bill.serials.some((item) => !item.completed && item.serialNo.trim().toLocaleUpperCase() === searchedSerial.toLocaleUpperCase())),
-      )
-    : recipients;
+  const visibleRecipients = deliveries?.recipients ?? [];
 
   return (
     <section className="flex w-full flex-col gap-4 px-4 pb-24 pt-5 sm:px-6">
@@ -141,7 +154,6 @@ export default function RecipientList(_props: { go: Navigate }) {
           onChange={(event) => {
             setSerial(event.target.value);
             if (!event.target.value.trim()) {
-              setSearchedSerial("");
               setSearchError("");
             }
           }}
@@ -151,7 +163,7 @@ export default function RecipientList(_props: { go: Navigate }) {
         />
         <button
           type="submit"
-          disabled={loading || !!error || !serial.trim()}
+          disabled={!serial.trim()}
           aria-label="ค้นหา SN"
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white disabled:bg-slate-300"
         >
@@ -159,7 +171,6 @@ export default function RecipientList(_props: { go: Navigate }) {
         </button>
         <button
           type="button"
-          disabled={loading || !!error}
           onClick={() => {
             setCameraError("");
             setSearchError("");
@@ -171,24 +182,6 @@ export default function RecipientList(_props: { go: Navigate }) {
           <ScanLine size={27} strokeWidth={2.2} />
         </button>
       </form>
-      {searchedSerial ? (
-        <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
-          <span className="min-w-0 break-all">
-            ผลค้นหา SN: <b>{searchedSerial}</b>
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setSerial("");
-              setSearchedSerial("");
-              setSearchError("");
-            }}
-            className="shrink-0 font-bold text-blue-700"
-          >
-            แสดงทั้งหมด
-          </button>
-        </div>
-      ) : null}
       {searchError ? (
         <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-800">
           {searchError}
@@ -201,7 +194,7 @@ export default function RecipientList(_props: { go: Navigate }) {
           {error}
         </p>
       ) : null}
-      {!loading && !error && !visibleRecipients.length && !searchedSerial ? (
+      {!loading && !error && !visibleRecipients.length ? (
         <p className="rounded-2xl bg-white p-4 text-center text-sm text-slate-500">ไม่มีรายการสินค้าที่กำลังนำจ่าย</p>
       ) : null}
       <div className="grid gap-3">
@@ -209,7 +202,7 @@ export default function RecipientList(_props: { go: Navigate }) {
           <button
             key={recipient.key}
             type="button"
-            onClick={() => navigate("/recipient-close", { state: { deliveryRecipient: recipient } })}
+            onClick={() => openRecipient(recipient)}
             className="flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm active:bg-slate-50"
           >
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">

@@ -64,11 +64,22 @@ export default function IssueInbox() {
   return (
     <section className="flex h-[calc(100dvh-72px)] flex-col bg-slate-50">
       <header className="grid h-[58px] shrink-0 grid-cols-[40px_1fr_40px] items-center border-b border-slate-200 bg-white px-3.5">
-        <button type="button" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="grid h-9 w-9 place-items-center rounded-full bg-blue-50 text-blue-600 active:bg-blue-100">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          aria-label="ย้อนกลับ"
+          className="grid h-9 w-9 place-items-center rounded-full bg-blue-50 text-blue-600 active:bg-blue-100"
+        >
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
         <b className="text-center text-[17px] font-bold text-slate-900">ปัญหา</b>
-        <button type="button" onClick={() => void loadThreads(true)} disabled={refreshing} aria-label="อัปเดตรายการ" className="grid h-9 w-9 place-items-center rounded-full text-slate-500 active:bg-slate-100 disabled:text-slate-300">
+        <button
+          type="button"
+          onClick={() => void loadThreads(true)}
+          disabled={refreshing}
+          aria-label="อัปเดตรายการ"
+          className="grid h-9 w-9 place-items-center rounded-full text-slate-500 active:bg-slate-100 disabled:text-slate-300"
+        >
           <RefreshCw size={19} className={refreshing ? "animate-spin" : ""} />
         </button>
       </header>
@@ -98,12 +109,21 @@ export default function IssueInbox() {
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[15px] font-bold text-blue-700">{thread.receive_code}</span>
                     </span>
-                    <span className="mt-0.5 block truncate text-[12px] font-bold text-slate-600">{thread.issue_type || "แจ้งปัญหาการจัดส่ง"}{thread.recipient_name ? ` · ${thread.recipient_name}` : ""}</span>
+                    <span className="mt-0.5 block truncate text-[12px] font-bold text-slate-600">
+                      {thread.issue_type || "แจ้งปัญหาการจัดส่ง"}
+                      {thread.recipient_name ? ` · ${thread.recipient_name}` : ""}
+                    </span>
                     <span className="mt-0.5 block truncate text-[13px] text-slate-500">{thread.last_message || "ยังไม่มีข้อความ"}</span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end self-stretch pt-0.5">
                     <span className="text-xs font-medium text-slate-400">{time(thread.updated_at)}</span>
-                    {unread ? <span className="mt-auto grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">{unread > 99 ? "99+" : unread}</span> : <ChevronRight size={18} strokeWidth={2.25} className="mt-auto text-slate-300" />}
+                    {unread ? (
+                      <span className="mt-auto grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-3 text-[11px] font-bold text-white">
+                        {unread > 99 ? "99+" : unread}
+                      </span>
+                    ) : (
+                      <ChevronRight size={18} strokeWidth={2.25} className="mt-auto text-slate-300" />
+                    )}
                   </span>
                 </button>
               );

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
 import { Camera, CheckCircle2, FileText, ImagePlus, MapPin, Phone, RotateCcw, ScanLine, TriangleAlert, X } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { DeliveryRecipient } from "../types/delivery";
 import { createScanner, openCamera as openDeviceCamera } from "../utils/scanner";
 import AxiosInstance from "../services/http";
+import { getDeliveryRecipient } from "../services/deliveries";
 
 type Photo = { file: File; url: string };
 const maxPhotos = 8;
@@ -11,8 +12,11 @@ const maxPhotos = 8;
 export default function RecipientClose() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const navigationState = location.state as { deliveryRecipient?: DeliveryRecipient; selectedSerialKey?: string } | null;
-  const realRecipient = navigationState?.deliveryRecipient;
+  const stateRecipient = navigationState?.deliveryRecipient;
+  const [realRecipient, setRealRecipient] = useState<DeliveryRecipient | null>(stateRecipient || null);
+  const [recipientLoading, setRecipientLoading] = useState(!stateRecipient);
   const recipient = realRecipient;
   const bills = useMemo(() => (realRecipient?.bills ?? []).map((bill) => ({
         key: bill.key,
@@ -58,6 +62,36 @@ export default function RecipientClose() {
   const photoUrls = useRef(new Set<string>());
   const signature = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
+
+  useEffect(() => {
+    if (stateRecipient) {
+      setRealRecipient(stateRecipient);
+      setRecipientLoading(false);
+      return;
+    }
+    const recipientDetailId = Number(searchParams.get("recipient_detail_id"));
+    const receiveBusinessId = Number(searchParams.get("receive_business_id"));
+    const receiveWalkinId = Number(searchParams.get("receive_walkin_id"));
+    const params = Number.isInteger(recipientDetailId) && recipientDetailId > 0
+      ? { recipient_detail_id: recipientDetailId }
+      : Number.isInteger(receiveBusinessId) && receiveBusinessId > 0
+        ? { receive_business_id: receiveBusinessId }
+        : Number.isInteger(receiveWalkinId) && receiveWalkinId > 0
+          ? { receive_walkin_id: receiveWalkinId }
+          : null;
+    if (!params) {
+      setRealRecipient(null);
+      setRecipientLoading(false);
+      return;
+    }
+    let active = true;
+    setRecipientLoading(true);
+    void getDeliveryRecipient(params)
+      .then((recipient) => { if (active) setRealRecipient(recipient); })
+      .catch(() => { if (active) setRealRecipient(null); })
+      .finally(() => { if (active) setRecipientLoading(false); });
+    return () => { active = false; };
+  }, [searchParams, stateRecipient]);
 
   useEffect(() => {
     if (!scanOpen) return;
@@ -299,6 +333,8 @@ export default function RecipientClose() {
     setSelected((current) => (allSelected ? current.filter((serial) => !serials.includes(serial)) : [...new Set([...current, ...serials])]));
     setNotice("");
   };
+
+  if (recipientLoading) return <section className="px-4 py-5"><p className="rounded-xl bg-white p-4 text-center text-[15px] font-semibold text-slate-600">กำลังโหลดข้อมูลผู้รับ...</p></section>;
 
   if (!recipient)
     return (

@@ -1,5 +1,6 @@
 export type DeliveryRecipient = {
   key: string;
+  recipientDetailId: number | null;
   name: string;
   address: string;
   phones: string[];
