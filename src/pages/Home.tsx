@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, FilePlus2, LayoutDashboard, Megaphone, Pin, Search } from "lucide-react";
+import { CalendarDays, Megaphone, Pin, Search } from "lucide-react";
 import { useDriverAuth } from "../context/AuthContext";
 import AxiosInstance from "../services/http";
 import { getDeliverySummary } from "../services/deliveries";
 import FuelLabel from "../components/FuelLabel";
-import type { Navigate } from "../types/driver";
 
 type Announcement = {
   id: number;
@@ -31,7 +30,7 @@ const formatOilDate = (value: string | null) => {
   return year && month && day ? `${day}-${month}-${Number(year) + 543} ${time.slice(0, 5)}`.trim() : value;
 };
 
-export default function Home({ go }: { go: Navigate }) {
+export default function Home() {
   const { driver } = useDriverAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [search, setSearch] = useState("");
@@ -103,10 +102,6 @@ export default function Home({ go }: { go: Navigate }) {
     year: "numeric",
   }).format(new Date());
   const visibleAnnouncements = announcements.filter((item) => `${item.title} ${item.content}`.toLocaleLowerCase().includes(searchText));
-  const workPages = [
-    ["WORK_MENU", "เมนูงานคนขับ", LayoutDashboard],
-    ["DELIVERY_CREATE", "สร้างใบรถกระจาย", FilePlus2],
-  ] as const;
   return (
     <section className="flex w-full flex-col gap-5 px-4 pb-24 pt-5 sm:px-6">
       <div className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-600 p-5 text-white shadow-xl shadow-blue-600/20">
@@ -146,20 +141,6 @@ export default function Home({ go }: { go: Navigate }) {
           </p>
         ) : null}
       </section>
-      <h2 className="text-lg font-bold text-slate-900">เมนูงาน</h2>
-      <div className="grid grid-cols-2 gap-3">
-        {workPages.map(([screen, label, Icon]) => (
-          <button
-            className="grid min-h-28 place-items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-[15px] font-bold text-slate-700 shadow-sm active:scale-[.98]"
-            key={screen}
-            type="button"
-            onClick={() => go(screen)}
-          >
-            {Icon ? <Icon className="h-6 w-6 text-blue-600" /> : null}
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-bold text-slate-900">ราคาน้ำมันวันนี้</h2>

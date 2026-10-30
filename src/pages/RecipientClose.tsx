@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
 import { Camera, CheckCircle2, FileText, ImagePlus, MapPin, Phone, RotateCcw, ScanLine, TriangleAlert, X } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import CameraCaptureModal from "../components/camera/CameraCaptureModal";
+import CameraScannerModal from "../components/camera/CameraScannerModal";
 import type { DeliveryRecipient } from "../types/delivery";
-import { createScanner, openCamera as openDeviceCamera } from "../utils/scanner";
 import AxiosInstance from "../services/http";
 import { getDeliveryRecipient } from "../services/deliveries";
 
@@ -48,17 +49,10 @@ export default function RecipientClose() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [photoError, setPhotoError] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
-  const [scanError, setScanError] = useState("");
   const [scanFeedback, setScanFeedback] = useState("");
   const [hasSignature, setHasSignature] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
-  const video = useRef<HTMLVideoElement>(null);
-  const scanVideo = useRef<HTMLVideoElement>(null);
-  const serialIndex = useRef(serialsByNumber);
-  serialIndex.current = serialsByNumber;
-  const stream = useRef<MediaStream | null>(null);
   const photoUrls = useRef(new Set<string>());
   const signature = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
@@ -93,91 +87,6 @@ export default function RecipientClose() {
     return () => { active = false; };
   }, [searchParams, stateRecipient]);
 
-  useEffect(() => {
-    if (!scanOpen) return;
-    let cancelled = false;
-    let cameraStream: MediaStream | null = null;
-    let stopScanning: (() => void) | undefined;
-    let lastValue = "";
-    let lastSeen = 0;
-    const openScanner = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setScanError("อุปกรณ์นี้ไม่รองรับการเปิดกล้องผ่านเบราว์เซอร์ กรุณาเปิดผ่าน HTTPS หรือเลือก SN ด้วยมือ");
-        return;
-      }
-      try {
-        const activeStream = await openDeviceCamera("scan");
-        if (cancelled) {
-          activeStream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        cameraStream = activeStream;
-        if (!scanVideo.current) return;
-        scanVideo.current.srcObject = activeStream;
-        await scanVideo.current.play();
-        const stop = await createScanner(scanVideo.current, (value) => {
-          if (cancelled) return;
-          const now = Date.now();
-          if (value && (value !== lastValue || now - lastSeen > 2000)) {
-            lastValue = value;
-            lastSeen = now;
-            const matches = serialIndex.current.get(value.toLocaleUpperCase()) ?? [];
-            if (matches.length === 1 && matches[0].completed) {
-              setScanFeedback(`SN ${value} ส่งสำเร็จแล้ว`);
-            } else if (matches.length === 1) {
-              setSelected((current) => (current.includes(matches[0].key) ? current : [...current, matches[0].key]));
-              setScanFeedback(`เลือก SN ${value} แล้ว`);
-            } else {
-              setScanFeedback(matches.length ? `SN ${value} มีหลายรายการ กรุณาเลือกด้วยมือ` : `ไม่พบ SN ${value} ของผู้รับรายนี้`);
-            }
-          }
-        });
-        if (cancelled) stop();
-        else stopScanning = stop;
-      } catch {
-        cameraStream?.getTracks().forEach((track) => track.stop());
-        if (!cancelled) setScanError("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่");
-      }
-    };
-    void openScanner();
-    return () => {
-      cancelled = true;
-      stopScanning?.();
-      cameraStream?.getTracks().forEach((track) => track.stop());
-    };
-  }, [scanOpen]);
-
-  useEffect(() => {
-    if (!cameraOpen) return;
-    let cancelled = false;
-    const openCamera = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError("อุปกรณ์นี้ไม่รองรับการเปิดกล้องผ่านเบราว์เซอร์ กรุณาเปิดผ่าน HTTPS");
-        return;
-      }
-      try {
-        const cameraStream = await openDeviceCamera("photo");
-        if (cancelled) {
-          cameraStream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        stream.current = cameraStream;
-        if (video.current) {
-          video.current.srcObject = cameraStream;
-          await video.current.play();
-        }
-      } catch {
-        if (!cancelled) setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่");
-      }
-    };
-    void openCamera();
-    return () => {
-      cancelled = true;
-      stream.current?.getTracks().forEach((track) => track.stop());
-      stream.current = null;
-    };
-  }, [cameraOpen]);
-
   useEffect(
     () => () => {
       photoUrls.current.forEach((url) => URL.revokeObjectURL(url));
@@ -210,29 +119,6 @@ export default function RecipientClose() {
     photoUrls.current.delete(url);
     setPhotos((current) => current.filter((photo) => photo.url !== url));
     setPhotoError("");
-  };
-
-  const capturePhoto = () => {
-    if (!video.current?.videoWidth || !video.current.videoHeight) {
-      setCameraError("กล้องยังไม่พร้อมถ่ายรูป กรุณาลองใหม่");
-      return;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = video.current.videoWidth;
-    canvas.height = video.current.videoHeight;
-    canvas.getContext("2d")?.drawImage(video.current, 0, 0);
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          setCameraError("ไม่สามารถบันทึกรูปได้ กรุณาลองใหม่");
-          return;
-        }
-        addPhotos([new File([blob], `delivery-${Date.now()}.jpg`, { type: "image/jpeg" })]);
-        setCameraOpen(false);
-      },
-      "image/jpeg",
-      0.9,
-    );
   };
 
   const signaturePoint = (event: PointerEvent<HTMLCanvasElement>) => {
@@ -374,7 +260,6 @@ export default function RecipientClose() {
       <button
         type="button"
         onClick={() => {
-          setScanError("");
           setScanFeedback("");
           setScanOpen(true);
         }}
@@ -488,7 +373,7 @@ export default function RecipientClose() {
           <button
             type="button"
             disabled={photos.length >= maxPhotos}
-            onClick={() => { setCameraError(""); setCameraOpen(true); }}
+            onClick={() => setCameraOpen(true)}
             className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm active:scale-[.99] disabled:opacity-50"
           >
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600"><Camera size={25} /></span>
@@ -581,92 +466,41 @@ export default function RecipientClose() {
       >
         {saving ? "กำลังบันทึก..." : "ยืนยันปิดงาน"}
       </button>
-      {cameraOpen ? (
-        <div
-          className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white"
-          role="dialog"
-          aria-modal="true"
-          aria-label="ถ่ายรูปการส่ง"
-        >
-          <div className="flex items-center justify-between p-5">
-            <b className="text-base font-bold">ถ่ายรูปการส่ง</b>
-            <button
-              type="button"
-              onClick={() => setCameraOpen(false)}
-              aria-label="ปิดกล้อง"
-              className="grid h-10 w-10 place-items-center rounded-full bg-white/15"
-            >
-              <X size={22} />
-            </button>
-          </div>
-          {cameraError ? (
-            <div className="grid place-content-center justify-items-center gap-4 p-8 text-center">
-              <TriangleAlert size={28} className="text-amber-300" />
-              <p className="max-w-xs leading-6 text-slate-200">{cameraError}</p>
-              <button type="button" onClick={() => setCameraOpen(false)} className="rounded-xl bg-blue-600 px-5 py-3 text-[15px] font-bold">
-                กลับ
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="relative grid place-items-center overflow-hidden">
-                <video ref={video} autoPlay playsInline muted className="h-full w-full object-cover" />
-              </div>
-              <div className="grid place-items-center gap-3 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5">
-                <small className="text-[15px] font-medium text-white/70">แตะปุ่มเพื่อถ่ายรูป</small>
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  aria-label="ถ่ายรูป"
-                  className="grid h-[72px] w-[72px] place-items-center rounded-full border-[3px] border-white bg-transparent p-[5px]"
-                >
-                  <span className="h-14 w-14 rounded-full bg-white" />
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      ) : null}
-      {scanOpen ? (
-        <div
-          className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white"
-          role="dialog"
-          aria-modal="true"
-          aria-label="สแกน SN เพื่อเลือก"
-        >
-          <div className="flex items-center justify-between p-5">
-            <b className="text-base font-bold">สแกน SN เพื่อเลือก</b>
-            <button
-              type="button"
-              onClick={() => setScanOpen(false)}
-              aria-label="ปิดกล้อง"
-              className="grid h-10 w-10 place-items-center rounded-full bg-white/15"
-            >
-              <X size={22} />
-            </button>
-          </div>
-          {scanError ? (
-            <div className="grid place-content-center justify-items-center gap-4 p-8 text-center">
-              <TriangleAlert size={28} className="text-amber-300" />
-              <p className="max-w-xs leading-6 text-slate-200">{scanError}</p>
-            </div>
-          ) : (
-            <div className="relative grid place-items-center overflow-hidden">
-              <video ref={scanVideo} autoPlay playsInline muted className="h-full w-full object-cover" />
-            </div>
-          )}
+      <CameraCaptureModal
+        open={cameraOpen}
+        title="ถ่ายรูปการส่ง"
+        fileName={`delivery-${Date.now()}.jpg`}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(file) => addPhotos([file])}
+      />
+      <CameraScannerModal
+        open={scanOpen}
+        title="สแกน SN เพื่อเลือก"
+        guide="เล็งกล้องไปที่บาร์โค้ดหรือ QR Code"
+        closeOnScan={false}
+        onClose={() => setScanOpen(false)}
+        onScan={(value) => {
+          const matches = serialsByNumber.get(value.toLocaleUpperCase()) ?? [];
+          if (matches.length === 1 && matches[0].completed) {
+            setScanFeedback(`SN ${value} ส่งสำเร็จแล้ว`);
+          } else if (matches.length === 1) {
+            setSelected((current) => (current.includes(matches[0].key) ? current : [...current, matches[0].key]));
+            setScanFeedback(`เลือก SN ${value} แล้ว`);
+          } else {
+            setScanFeedback(matches.length ? `SN ${value} มีหลายรายการ กรุณาเลือกด้วยมือ` : `ไม่พบ SN ${value} ของผู้รับรายนี้`);
+          }
+        }}
+        footer={
           <div className="grid gap-3 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-center">
-            {!scanError ? (
-              <p role="status" className="break-words text-sm font-semibold text-white">
-                {scanFeedback || "เล็งกล้องไปที่บาร์โค้ดหรือ QR Code"}
-              </p>
-            ) : null}
+            <p role="status" className="break-words text-sm font-semibold text-white">
+              {scanFeedback || "เล็งกล้องไปที่บาร์โค้ดหรือ QR Code"}
+            </p>
             <button type="button" onClick={() => setScanOpen(false)} className="h-12 rounded-xl bg-blue-600 text-[15px] font-bold">
               เสร็จสิ้น
             </button>
           </div>
-        </div>
-      ) : null}
+        }
+      />
     </section>
   );
 }

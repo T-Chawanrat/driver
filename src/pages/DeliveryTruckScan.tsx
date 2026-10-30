@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ScanLine, Search, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ScanLine, Search } from "lucide-react";
+import CameraScannerModal from "../components/camera/CameraScannerModal";
 import AxiosInstance from "../services/http";
-import { createScanner, openCamera } from "../utils/scanner";
+import { preventSpaceKey, removeSpaces } from "../utils/textSanitizer";
 
 type ScanItem = { serial_id?: string; serial_no?: string };
-type RouteWarning = { serialNo: string; routeMissing: boolean };
+type ScanWarning = { serialNo: string; warningCodes: string[] };
 type TruckDetails = { truck_code: string | null; license_plate: string | null; license_plate_province: string | null; route_code: string | null; route_name: string | null };
 
 export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number; onBack: () => void; onClose: () => void }) {
@@ -17,11 +18,9 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
   const [scanMode, setScanMode] = useState<"LOAD" | "UNLOAD">("LOAD");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [routeWarning, setRouteWarning] = useState<RouteWarning | null>(null);
+  const [scanWarning, setScanWarning] = useState<ScanWarning | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  const video = useRef<HTMLVideoElement>(null);
   const base = "/driver/delivery-trucks";
   const title = "สแกนขึ้นรถกระจาย";
 
@@ -57,7 +56,7 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
   }, [id]);
 
   const submitSerial = async (serialNo: string, confirmRouteWarning = false) => {
-    const trimmedSerial = serialNo.trim();
+    const trimmedSerial = removeSpaces(serialNo);
     if (!trimmedSerial || !id || saving) return;
 
     try {
@@ -72,8 +71,8 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
       input.current?.focus();
     } catch (exception: any) {
       const warning = exception.response?.data;
-      if (scanMode === "LOAD" && (warning?.code === "ROUTE_MISSING" || warning?.code === "ROUTE_MISMATCH")) {
-        setRouteWarning({ serialNo: warning.data?.serial_no || trimmedSerial, routeMissing: warning.code === "ROUTE_MISSING" });
+      if (scanMode === "LOAD" && warning?.code === "SCAN_WARNING") {
+        setScanWarning({ serialNo: warning.data?.serial_no || trimmedSerial, warningCodes: warning.data?.warning_codes || [] });
         return;
       }
       setError(warning?.message || (scanMode === "LOAD" ? "ไม่สามารถยิง SN ขึ้นรถได้" : "ไม่สามารถยิงลบ SN ออกจากรถได้"));
@@ -82,39 +81,7 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
     }
   };
 
-  useEffect(() => {
-    if (!cameraOpen) return;
-    let cancelled = false;
-    let stream: MediaStream | undefined;
-    let stopScanning: (() => void) | undefined;
-    const start = async () => {
-      try {
-        const cameraStream = await openCamera("scan");
-        if (cancelled) { cameraStream.getTracks().forEach((track) => track.stop()); return; }
-        stream = cameraStream;
-        if (!video.current) return;
-        video.current.srcObject = cameraStream;
-        await video.current.play();
-        const stop = await createScanner(video.current, (value) => {
-          if (cancelled) return;
-          cancelled = true;
-          stopCamera();
-          void submitSerial(value);
-        });
-        if (cancelled) stop(); else stopScanning = stop;
-      } catch {
-        stream?.getTracks().forEach((track) => track.stop());
-        if (!cancelled) setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบ HTTPS และสิทธิ์กล้อง แล้วลองใหม่");
-      }
-    };
-    void start();
-    return () => { cancelled = true; stopScanning?.(); stream?.getTracks().forEach((track) => track.stop()); };
-  }, [cameraOpen]);
-
-  const startCamera = () => {
-    setCameraError("");
-    setCameraOpen(true);
-  };
+  const startCamera = () => setCameraOpen(true);
 
   return (
     <>
@@ -183,7 +150,10 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
               ref={input}
               autoFocus
               value={serial}
-              onChange={(event) => setSerial(event.target.value)}
+              onChange={(event) => setSerial(removeSpaces(event.target.value))}
+              onKeyDown={(event) => {
+                if (preventSpaceKey(event)) return;
+              }}
               placeholder={scanMode === "LOAD" ? "ยิงหรือพิมพ์ Serial No" : "ยิงลบหรือพิมพ์ Serial No"}
             />
             <button
@@ -268,32 +238,15 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
           )}
         </section>
       )}
-      {cameraOpen && (
-        <div className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr] bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label="สแกนบาร์โค้ดด้วยกล้อง">
-          <div className="flex items-center justify-between p-5">
-            <b className="text-base font-bold">สแกนบาร์โค้ด</b>
-            <button className="grid h-10 w-10 place-items-center rounded-full bg-white/15" type="button" onClick={stopCamera} aria-label="ปิดกล้อง">
-              <X size={22} />
-            </button>
-          </div>
-          {cameraError ? (
-            <div className="grid place-content-center justify-items-center gap-4 p-8 text-center text-amber-300">
-              <AlertTriangle size={28} />
-              <p className="max-w-xs text-sm leading-6 text-slate-200">{cameraError}</p>
-              <button className="rounded-xl bg-blue-600 px-5 py-3 text-[15px] font-bold text-white" type="button" onClick={stopCamera}>
-                กลับไปยิง SN
-              </button>
-            </div>
-          ) : (
-            <div className="relative grid place-items-center overflow-hidden">
-              <video className="h-full w-full object-cover" ref={video} autoPlay playsInline muted />
-              <div className="absolute h-52 w-[min(78vw,330px)] rounded-3xl border-2 border-white shadow-[0_0_0_999px_rgb(15_23_42_/_0.12)]" />
-              <p className="absolute bottom-8 text-sm font-semibold">จัดบาร์โค้ดให้อยู่ในกรอบ</p>
-            </div>
-          )}
-        </div>
-      )}
-      {routeWarning && (
+      <CameraScannerModal
+        open={cameraOpen}
+        title="สแกนบาร์โค้ด"
+        guide="จัดบาร์โค้ดให้อยู่ในกรอบ"
+        showFrame
+        onClose={stopCamera}
+        onScan={(value) => void submitSerial(value)}
+      />
+      {scanWarning && (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/50 p-5" role="presentation">
           <section className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="route-warning-title">
             <div className="flex items-center gap-3">
@@ -301,25 +254,26 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
                 <AlertTriangle size={23} />
               </span>
               <div>
-                <h2 className="text-lg font-bold text-amber-700" id="route-warning-title">{routeWarning.routeMissing ? "สินค้ายังไม่มีสายรถ" : "สายรถไม่ตรงกัน"}</h2>
+                <h2 className="text-lg font-bold text-amber-700" id="route-warning-title">ยืนยันยิงขึ้นรถ</h2>
               </div>
             </div>
-            <p className="my-4 text-sm leading-6 text-slate-600">
-              {routeWarning.routeMissing
-                ? "สินค้านี้ยังไม่ได้กำหนดสายรถ ต้องการยิงขึ้นรถต่อหรือไม่"
-                : "SN นี้อยู่คนละสายรถกับใบรถกระจายที่เลือก ต้องการยิงขึ้นรถต่อหรือไม่"}
-            </p>
+            <p className="mt-4 text-sm leading-6 text-slate-600">รายการนี้มีเงื่อนไขไม่ตรงกับใบรถที่เลือก</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-800">
+              {scanWarning.warningCodes.includes("WAREHOUSE_MISMATCH") && <li>คลังปลายทางไม่ตรงกับคลังของใบรถ</li>}
+              {scanWarning.warningCodes.includes("ROUTE_MISSING") && <li>ยังไม่ได้กำหนดสายรถ</li>}
+              {scanWarning.warningCodes.includes("ROUTE_MISMATCH") && <li>สายรถไม่ตรงกับใบรถที่เลือก</li>}
+            </ul>
             <div className="grid gap-1 rounded-2xl bg-amber-50 p-3 text-xs text-amber-800">
               <span>Serial No</span>
-              <strong className="font-mono text-sm">{routeWarning.serialNo}</strong>
+              <strong className="font-mono text-sm">{scanWarning.serialNo}</strong>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
                 className="h-12 rounded-xl border border-slate-200 bg-white text-[15px] font-bold text-slate-700"
                 type="button"
                 onClick={() => {
-                  const current = routeWarning;
-                  setRouteWarning(null);
+                  const current = scanWarning;
+                  setScanWarning(null);
                   void submitSerial(current.serialNo, true);
                 }}
                 disabled={saving}
@@ -330,7 +284,7 @@ export default function DeliveryTruckScan({ id, onBack, onClose }: { id?: number
                 className="h-12 rounded-xl bg-orange-600 text-[15px] font-bold text-white disabled:bg-orange-300"
                 type="button"
                 onClick={() => {
-                  setRouteWarning(null);
+                  setScanWarning(null);
                   setSerial("");
                   input.current?.focus();
                 }}

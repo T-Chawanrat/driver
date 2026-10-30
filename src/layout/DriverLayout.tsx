@@ -48,7 +48,7 @@ export default function DriverLayout({ children, go, onBack, screen }: DriverLay
       <div className="mx-auto w-full max-w-[760px]">{children}</div>
       <nav className="fixed bottom-0 left-1/2 z-40 grid h-[72px] w-full max-w-[760px] -translate-x-1/2 grid-cols-5 border-t border-slate-200 bg-white px-1 pt-1.5 shadow-[0_-3px_14px_rgb(15_23_42_/_0.06)]">
         <button
-          className={`grid content-center justify-items-center gap-1 text-[11px] font-semibold ${screen === "HOME" || screen === "WORK_MENU" ? "text-blue-600" : "text-slate-500"}`}
+          className={`grid content-center justify-items-center gap-1 text-[11px] font-semibold ${screen === "HOME" ? "text-blue-600" : "text-slate-500"}`}
           onClick={() => go("HOME")}
         >
           <House size={30} />

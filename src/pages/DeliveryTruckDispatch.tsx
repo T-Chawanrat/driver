@@ -1,7 +1,7 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, CheckCircle2, ImagePlus, RotateCcw, ScanLine, Truck, X } from "lucide-react";
+import { Camera, CheckCircle2, ImagePlus, RotateCcw, ScanLine, Truck } from "lucide-react";
+import CameraCaptureModal from "../components/camera/CameraCaptureModal";
 import AxiosInstance from "../services/http";
-import { openCamera } from "../utils/scanner";
 
 type TruckDetail = {
   truck_code?: string;
@@ -16,14 +16,10 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const video = useRef<HTMLVideoElement>(null);
-  const stream = useRef<MediaStream | null>(null);
-  const cameraRequest = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,12 +29,6 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
       .catch(() => setError("โหลดข้อมูลใบรถกระจายไม่สำเร็จ"));
   }, [id]);
 
-  useEffect(() => {
-    if (!cameraOpen || !video.current || !stream.current) return;
-    video.current.srcObject = stream.current;
-    void video.current.play().catch(() => setError("ไม่สามารถแสดงภาพจากกล้องได้"));
-  }, [cameraOpen]);
-
   useEffect(
     () => () => {
       if (imageUrl) URL.revokeObjectURL(imageUrl);
@@ -46,76 +36,20 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
     [imageUrl],
   );
 
-  useEffect(() => () => { cameraRequest.current++; stream.current?.getTracks().forEach((track) => track.stop()); }, []);
+  const startCamera = () => setCameraOpen(true);
 
-  const closeCamera = () => {
-    cameraRequest.current++;
-    stream.current?.getTracks().forEach((track) => track.stop());
-    stream.current = null;
-    setCameraOpen(false);
-  };
-
-  const startCamera = async () => {
-    const request = ++cameraRequest.current;
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError("อุปกรณ์นี้ไม่รองรับการเปิดกล้องผ่านเบราว์เซอร์ กรุณาเปิดด้วย Chrome บนมือถือหรือแท็บเล็ต");
-      setCameraOpen(true);
-      return;
-    }
-
-    try {
-      setCameraError("");
-      const cameraStream = await openCamera("photo");
-      if (request !== cameraRequest.current) { cameraStream.getTracks().forEach((track) => track.stop()); return; }
-      stream.current?.getTracks().forEach((track) => track.stop());
-      stream.current = cameraStream;
-      setCameraOpen(true);
-    } catch {
-      if (request !== cameraRequest.current) return;
-      setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่");
-      setCameraOpen(true);
-    }
-  };
-
-  const capturePhoto = () => {
-    if (!video.current || !video.current.videoWidth || !video.current.videoHeight) {
-      setError("กล้องยังไม่พร้อมถ่ายรูป");
-      return;
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = video.current.videoWidth;
-    canvas.height = video.current.videoHeight;
-    canvas.getContext("2d")?.drawImage(video.current, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          setError("ไม่สามารถสร้างรูปจากกล้องได้");
-          return;
-        }
-
-        const file = new File([blob], "truck-close.jpg", { type: "image/jpeg" });
-        if (imageUrl) URL.revokeObjectURL(imageUrl);
-        setImageFile(file);
-        setImageUrl(URL.createObjectURL(file));
-        setSuccess("");
-        setError("");
-        closeCamera();
-      },
-      "image/jpeg",
-      0.9,
-    );
-  };
-
-  const selectTestPhoto = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const setImage = (file: File) => {
     if (imageUrl) URL.revokeObjectURL(imageUrl);
     setImageFile(file);
     setImageUrl(URL.createObjectURL(file));
     setSuccess("");
     setError("");
+  };
+
+  const selectTestPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImage(file);
     event.target.value = "";
   };
 
@@ -253,48 +187,14 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
           </section>
         </div>
       ) : null}
-      {cameraOpen ? (
-        <div
-          className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white"
-          role="dialog"
-          aria-modal="true"
-          aria-label="ถ่ายรูปปิดบรรทุก"
-        >
-          <div className="flex items-center justify-between p-5">
-            <b className="text-base font-bold">ถ่ายรูปปิดบรรทุก</b>
-            <button className="grid h-10 w-10 place-items-center rounded-full bg-white/15" type="button" onClick={closeCamera} aria-label="ปิดกล้อง">
-              <X size={22} />
-            </button>
-          </div>
-          {cameraError ? (
-            <div className="grid place-content-center justify-items-center gap-4 p-8 text-center text-amber-300">
-              <AlertTriangle size={28} />
-              <p className="max-w-xs leading-6 text-slate-200">{cameraError}</p>
-              <button className="rounded-xl bg-blue-600 px-5 py-3 text-[15px] font-bold text-white" type="button" onClick={closeCamera}>
-                กลับไปหน้าปิดบรรทุก
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="relative grid place-items-center overflow-hidden">
-                <video className="h-full w-full object-cover" ref={video} autoPlay playsInline muted />
-                <p className="absolute bottom-8 text-sm font-semibold">จัดภาพบรรทุกสินค้าให้อยู่ในกรอบ</p>
-              </div>
-              <div className="grid place-items-center gap-3 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5">
-                <small className="text-[15px] font-medium text-white/70">แตะปุ่มเพื่อถ่ายรูป</small>
-                <button
-                  className="grid h-[72px] w-[72px] place-items-center rounded-full border-[3px] border-white bg-transparent p-[5px]"
-                  type="button"
-                  onClick={capturePhoto}
-                  aria-label="ถ่ายรูป"
-                >
-                  <span className="h-14 w-14 rounded-full bg-white" />
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      ) : null}
+      <CameraCaptureModal
+        open={cameraOpen}
+        title="ถ่ายรูปปิดบรรทุก"
+        guide="จัดภาพบรรทุกสินค้าให้อยู่ในกรอบ"
+        fileName="truck-close.jpg"
+        onClose={() => setCameraOpen(false)}
+        onCapture={setImage}
+      />
     </section>
   );
 }

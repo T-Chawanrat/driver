@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CarFront, Route, Truck } from "lucide-react";
+import { CarFront, Truck } from "lucide-react";
 import AxiosInstance from "../services/http";
 import { useDriverAuth } from "../context/AuthContext";
 import type { Navigate } from "../types/driver";
@@ -78,32 +78,54 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
           <Truck size={17} />
           {driverName}
         </b>
-        <small className="text-[13px] font-medium text-slate-600">{driverType === "CONTRACTOR" ? "รถเสริม (Contractor)" : "พนักงานประจำ"}</small>
+        <small className="text-[13px] font-medium text-slate-600">{driverType === "CONTRACTOR" ? "รถเสริม" : "พนักงาน"}</small>
       </div>
       {loading ? (
         <p className="rounded-xl bg-slate-50 p-4 text-center text-[15px] font-medium text-slate-500">กำลังโหลดข้อมูล...</p>
       ) : (
         <>
           {driverType === "EMPLOYEE" ? (
-            <SearchableSelect label="รถ" required value={vehicle} onChange={setVehicle} placeholder="ค้นหาทะเบียนรถหรือจังหวัด" options={vehicles.map((item) => ({ value: String(item.id), label: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" · "), searchText: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" ") }))} />
+            <SearchableSelect
+              label="รถ"
+              required
+              value={vehicle}
+              onChange={setVehicle}
+              placeholder="ค้นหาทะเบียนรถหรือจังหวัด"
+              options={vehicles.map((item) => ({
+                value: String(item.id),
+                label: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" · "),
+                searchText: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" "),
+              }))}
+            />
           ) : (
             <div className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <small className="text-[13px] font-semibold text-slate-600">รถที่ผูกกับคนขับ</small>
+              <small className="text-[13px] font-semibold text-slate-600">ทะเบียนรถ</small>
               <b className="flex items-center gap-2 text-base font-bold text-slate-900">
                 <CarFront size={17} />
                 {contractorVehicleName || "ไม่พบข้อมูลรถ"}
               </b>
             </div>
           )}
-          <SearchableSelect label="สายรถ" required value={route} onChange={setRoute} placeholder="ค้นหารหัสหรือชื่อสายรถ" options={routes.map((item) => ({ value: String(item.route_id), label: [item.route_code, item.route_name].filter(Boolean).join(" - "), searchText: [item.route_code, item.route_name].filter(Boolean).join(" ") }))} />
-          <p className="flex gap-2 rounded-xl bg-blue-50 p-3 text-[15px] font-medium leading-5 text-blue-800">
-            <Route size={17} />
-            {driverType === "CONTRACTOR" ? "รถของ contractor ถูกผูกไว้แล้ว จึงเลือกเฉพาะสายรถ" : "กรุณาเลือกรถและสายรถก่อนเริ่มสแกนสินค้า"}
-          </p>
+          <SearchableSelect
+            label="สายรถ"
+            required
+            value={route}
+            onChange={setRoute}
+            placeholder="ค้นหารหัสหรือชื่อสายรถ"
+            options={routes.map((item) => ({
+              value: String(item.route_id),
+              label: [item.route_code, item.route_name].filter(Boolean).join(" - "),
+              searchText: [item.route_code, item.route_name].filter(Boolean).join(" "),
+            }))}
+          />
         </>
       )}
       {error ? <p className="rounded-xl bg-red-50 p-3 text-[15px] font-medium text-red-700">{error}</p> : null}
-      <button className="h-12 rounded-xl bg-gradient-to-br from-blue-700 to-blue-600 text-[15px] font-bold text-white shadow-lg shadow-blue-600/20 disabled:bg-slate-300 disabled:shadow-none" onClick={() => void create()} disabled={loading || saving || !driverType}>
+      <button
+        className="h-12 rounded-xl bg-gradient-to-br from-blue-700 to-blue-600 text-[15px] font-bold text-white shadow-lg shadow-blue-600/20 disabled:bg-slate-300 disabled:shadow-none"
+        onClick={() => void create()}
+        disabled={loading || saving || !driverType}
+      >
         {saving ? "กำลังสร้าง..." : "สร้างและเริ่มสแกน"}
       </button>
     </section>

@@ -9,8 +9,8 @@ export default function Menu({ go }: { go: Navigate }) {
   const name = [driver?.first_name, driver?.last_name].filter(Boolean).join(" ") || driver?.username || "พนักงานขับรถ";
   const items = [
     { screen: "PROFILE", label: "ข้อมูลผู้ขับ", description: "ข้อมูลบัญชีและคลังที่สังกัด", Icon: UserRound },
-    { screen: "JOB_HISTORY", label: "ประวัติงาน", description: "ดูรายการงานที่เสร็จสิ้น", Icon: History },
-    { screen: "CONTACT", label: "ติดต่อผู้ดูแล", description: "ช่องทางติดต่อเมื่อมีปัญหา", Icon: Headset },
+    // { screen: "JOB_HISTORY", label: "ประวัติงาน", description: "ดูรายการงานที่เสร็จสิ้น", Icon: History },
+    // { screen: "CONTACT", label: "ติดต่อผู้ดูแล", description: "ช่องทางติดต่อเมื่อมีปัญหา", Icon: Headset },
   ] as const;
 
   return (

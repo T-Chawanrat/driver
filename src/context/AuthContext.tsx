@@ -14,6 +14,7 @@ export type Driver = {
 
 type AuthContextValue = {
   driver: Driver | null;
+  tokenExpired: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 };
@@ -25,26 +26,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { return JSON.parse(localStorage.getItem("driver_user") || "null") as Driver | null; }
     catch { return null; }
   });
+  const [tokenExpired, setTokenExpired] = useState(false);
 
   const logout = useCallback(() => {
     localStorage.removeItem("driver_token");
     localStorage.removeItem("driver_user");
     setDriver(null);
+    setTokenExpired(false);
   }, []);
 
   useEffect(() => {
-    setTokenExpiredHandler(logout);
+    setTokenExpiredHandler(() => setTokenExpired(true));
     return () => setTokenExpiredHandler(() => {});
-  }, [logout]);
+  }, []);
 
   const login = useCallback(async (username: string, password: string) => {
     const { data } = await AxiosInstance.post("/driver/login", { username, password });
     localStorage.setItem("driver_token", data.token);
     localStorage.setItem("driver_user", JSON.stringify(data.user));
     setDriver(data.user);
+    setTokenExpired(false);
   }, []);
 
-  const value = useMemo<AuthContextValue>(() => ({ driver, login, logout }), [driver, login, logout]);
+  const value = useMemo<AuthContextValue>(() => ({ driver, tokenExpired, login, logout }), [driver, tokenExpired, login, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

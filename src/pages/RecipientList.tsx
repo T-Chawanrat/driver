@@ -1,23 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Gauge, MapPin, Package, Phone, ScanLine, Search, TriangleAlert, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronRight, Gauge, MapPin, Package, Phone, ScanLine, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import CameraScannerModal from "../components/camera/CameraScannerModal";
+import { useDriverAuth } from "../context/AuthContext";
 import { getDeliveries } from "../services/deliveries";
-import type { Navigate } from "../types/driver";
-import { createScanner, openCamera } from "../utils/scanner";
 import type { Deliveries, DeliveryRecipient } from "../types/delivery";
 
 
-export default function RecipientList(_props: { go: Navigate }) {
+export default function RecipientList() {
   const navigate = useNavigate();
+  const { driver } = useDriverAuth();
+  const isContractor = driver?.employment_type === "CONTRACTOR";
   const [deliveries, setDeliveries] = useState<Deliveries | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [serial, setSerial] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   const [searchError, setSearchError] = useState("");
-  const video = useRef<HTMLVideoElement>(null);
-  const searchRef = useRef<(value: string) => void>(() => {});
   const openRecipient = (recipient: DeliveryRecipient, selectedSerialKey?: string) => {
     const bill = recipient.bills[0];
     const params = new URLSearchParams();
@@ -54,49 +53,6 @@ export default function RecipientList(_props: { go: Navigate }) {
     }
     openRecipient(match.recipient, match.selectedSerialKey);
   };
-  searchRef.current = searchSerial;
-
-  useEffect(() => {
-    if (!cameraOpen) return;
-    let cancelled = false;
-    let stream: MediaStream | null = null;
-    let stopScanning: (() => void) | undefined;
-    const start = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError("อุปกรณ์นี้ไม่รองรับการเปิดกล้องผ่านเบราว์เซอร์ กรุณาใช้เครื่องสแกนหรือพิมพ์ SN");
-        return;
-      }
-      try {
-        const cameraStream = await openCamera("scan");
-        if (cancelled) {
-          cameraStream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        stream = cameraStream;
-        if (!video.current) return;
-        video.current.srcObject = cameraStream;
-        await video.current.play();
-        const stop = await createScanner(video.current, (scanned) => {
-          if (cancelled) return;
-          cancelled = true;
-          setCameraOpen(false);
-          searchRef.current(scanned);
-        });
-        if (cancelled) stop();
-        else stopScanning = stop;
-      } catch {
-        stream?.getTracks().forEach((track) => track.stop());
-        if (!cancelled) setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่");
-      }
-    };
-    void start();
-    return () => {
-      cancelled = true;
-      stopScanning?.();
-      stream?.getTracks().forEach((track) => track.stop());
-    };
-  }, [cameraOpen]);
-
   useEffect(() => {
     let current = true;
     void getDeliveries()
@@ -121,10 +77,12 @@ export default function RecipientList(_props: { go: Navigate }) {
       <div className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-600 p-5 text-white shadow-xl shadow-blue-600/20">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-bold">รายการสินค้าบนรถ</h1>
-          <button type="button" onClick={() => navigate("/mileage/close")} className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-white/40 bg-white/15 px-3 text-sm font-bold text-white active:bg-white/25">
-            <Gauge size={19} aria-hidden="true" />
-            ปิดไมล์
-          </button>
+          {!isContractor && (
+            <button type="button" onClick={() => navigate("/mileage/close")} className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-white/40 bg-white/15 px-3 text-sm font-bold text-white active:bg-white/25">
+              <Gauge size={19} aria-hidden="true" />
+              ปิดไมล์
+            </button>
+          )}
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/20 pt-4 text-center">
           <div>
@@ -146,7 +104,7 @@ export default function RecipientList(_props: { go: Navigate }) {
         onSubmit={(event) => {
           event.preventDefault();
           setSearchError("");
-          searchRef.current(serial);
+          searchSerial(serial);
         }}
       >
         <input
@@ -172,7 +130,6 @@ export default function RecipientList(_props: { go: Navigate }) {
         <button
           type="button"
           onClick={() => {
-            setCameraError("");
             setSearchError("");
             setCameraOpen(true);
           }}
@@ -227,44 +184,14 @@ export default function RecipientList(_props: { go: Navigate }) {
           </button>
         ))}
       </div>
-      {cameraOpen ? (
-        <div
-          className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white"
-          role="dialog"
-          aria-modal="true"
-          aria-label="สแกนค้นหา SN"
-        >
-          <div className="flex items-center justify-between p-5">
-            <b className="text-base font-bold">สแกนค้นหา SN</b>
-            <button
-              type="button"
-              onClick={() => setCameraOpen(false)}
-              aria-label="ปิดกล้อง"
-              className="grid h-10 w-10 place-items-center rounded-full bg-white/15"
-            >
-              <X size={22} />
-            </button>
-          </div>
-          {cameraError ? (
-            <div className="grid place-content-center justify-items-center gap-4 p-8 text-center">
-              <TriangleAlert size={28} className="text-amber-300" />
-              <p className="max-w-xs leading-6 text-slate-200">{cameraError}</p>
-              <button type="button" onClick={() => setCameraOpen(false)} className="rounded-xl bg-blue-600 px-5 py-3 text-[15px] font-bold">
-                กลับ
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="relative grid place-items-center overflow-hidden">
-                <video ref={video} autoPlay playsInline muted className="h-full w-full object-cover" />
-              </div>
-              <p className="px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-center text-sm font-semibold text-white/80">
-                เล็งกล้องไปที่บาร์โค้ดหรือ QR Code
-              </p>
-            </>
-          )}
-        </div>
-      ) : null}
+      <CameraScannerModal
+        open={cameraOpen}
+        title="สแกนค้นหา SN"
+        guide="เล็งกล้องไปที่บาร์โค้ดหรือ QR Code"
+        showFrame
+        onClose={() => setCameraOpen(false)}
+        onScan={searchSerial}
+      />
     </section>
   );
 }
