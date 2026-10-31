@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Gauge, MapPin, Package, Phone, ScanLine, Search } from "lucide-react";
+import { ChevronRight, Gauge, MapPin, Package, PackageMinus, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CameraScannerModal from "../components/camera/CameraScannerModal";
+import SerialScanInput from "../components/SerialScanInput";
 import { useDriverAuth } from "../context/AuthContext";
+import AxiosInstance from "../services/http";
 import { getDeliveries } from "../services/deliveries";
 import type { Deliveries, DeliveryRecipient } from "../types/delivery";
 
@@ -17,6 +19,7 @@ export default function RecipientList() {
   const [serial, setSerial] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [failedReturnCount, setFailedReturnCount] = useState(0);
   const openRecipient = (recipient: DeliveryRecipient, selectedSerialKey?: string) => {
     const bill = recipient.bills[0];
     const params = new URLSearchParams();
@@ -65,6 +68,13 @@ export default function RecipientList() {
       .finally(() => {
         if (current) setLoading(false);
       });
+    void AxiosInstance.get<{ data?: unknown[] }>("/driver/returns/failed")
+      .then(({ data }) => {
+        if (current) setFailedReturnCount(Array.isArray(data.data) ? data.data.length : 0);
+      })
+      .catch(() => {
+        if (current) setFailedReturnCount(0);
+      });
     return () => {
       current = false;
     };
@@ -99,46 +109,41 @@ export default function RecipientList() {
           </div>
         </div>
       </div>
-      <form
-        className="flex min-h-[76px] items-center gap-2 rounded-3xl border border-blue-100 bg-white p-2 shadow-sm"
-        onSubmit={(event) => {
-          event.preventDefault();
+      {failedReturnCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => navigate("/returns")}
+          className="flex min-h-[68px] items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 text-left shadow-sm active:scale-[.99]"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
+            <PackageMinus size={22} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-bold text-amber-900">มีสินค้าส่งไม่สำเร็จ</span>
+            <span className="mt-0.5 block text-sm font-medium text-amber-700">{failedReturnCount} SN รอคืนคลัง</span>
+          </span>
+          <ChevronRight size={20} className="shrink-0 text-amber-500" />
+        </button>
+      ) : null}
+      <SerialScanInput
+        value={serial}
+        placeholder="ยิงหรือพิมพ์ Serial No"
+        inputLabel="ค้นหา Serial No"
+        searchLabel="ค้นหา SN"
+        cameraLabel="เปิดกล้องเพื่อค้นหา SN"
+        onValueChange={(value) => {
+          setSerial(value);
+          setSearchError("");
+        }}
+        onSubmit={() => {
           setSearchError("");
           searchSerial(serial);
         }}
-      >
-        <input
-          value={serial}
-          onChange={(event) => {
-            setSerial(event.target.value);
-            if (!event.target.value.trim()) {
-              setSearchError("");
-            }
-          }}
-          placeholder="ยิงหรือพิมพ์ Serial No"
-          aria-label="ค้นหา Serial No"
-          className="min-w-0 flex-1 border-0 bg-transparent px-3 text-[15px] font-medium outline-none"
-        />
-        <button
-          type="submit"
-          disabled={!serial.trim()}
-          aria-label="ค้นหา SN"
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white disabled:bg-slate-300"
-        >
-          <Search size={25} strokeWidth={2.2} />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setSearchError("");
-            setCameraOpen(true);
-          }}
-          aria-label="เปิดกล้องเพื่อค้นหา SN"
-          className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl bg-blue-100 text-blue-700 active:bg-blue-200 disabled:opacity-50"
-        >
-          <ScanLine size={27} strokeWidth={2.2} />
-        </button>
-      </form>
+        onOpenCamera={() => {
+          setSearchError("");
+          setCameraOpen(true);
+        }}
+      />
       {searchError ? (
         <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-800">
           {searchError}

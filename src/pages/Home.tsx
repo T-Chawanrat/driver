@@ -15,7 +15,6 @@ type Announcement = {
 };
 
 type OilPrice = { product: string; price: number };
-type DriverTruck = { is_close?: string | null };
 
 const getUploadUrl = (value: string) => {
   if (/^(https?:|data:|blob:)/i.test(value)) return value;
@@ -42,6 +41,8 @@ export default function Home() {
   const [oilError, setOilError] = useState("");
   const [preparingCount, setPreparingCount] = useState<number | null>(null);
   const [deliveringCount, setDeliveringCount] = useState<number | null>(null);
+  const [deliveredCount, setDeliveredCount] = useState<number | null>(null);
+  const [deliveryTotal, setDeliveryTotal] = useState<number | null>(null);
   const [summaryError, setSummaryError] = useState("");
 
   useEffect(() => {
@@ -72,17 +73,14 @@ export default function Home() {
         if (current) setOilLoading(false);
       });
 
-    void AxiosInstance.get<{ data?: DriverTruck[] }>("/driver/trucks")
-      .then(({ data }) => {
-        if (current) setPreparingCount((data.data || []).filter((truck) => truck.is_close !== "Y").length);
-      })
-      .catch(() => {
-        if (current) setSummaryError("โหลดข้อมูลสรุปบางส่วนไม่สำเร็จ");
-      });
-
     void getDeliverySummary()
       .then((data) => {
-        if (current) setDeliveringCount(data.truckCount);
+        if (current) {
+          setPreparingCount(data.preparingTruckCount);
+          setDeliveringCount(data.truckCount);
+          setDeliveredCount(data.deliveredSerialCount);
+          setDeliveryTotal(data.totalSerialCount);
+        }
       })
       .catch(() => {
         if (current) setSummaryError("โหลดข้อมูลสรุปบางส่วนไม่สำเร็จ");
@@ -113,25 +111,25 @@ export default function Home() {
       </div>
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-bold text-slate-900">สรุปงานวันนี้</h2>
+          <h2 className="text-lg font-bold text-slate-900">สรุปงาน</h2>
         </div>
         <div className="mt-4 grid grid-cols-3 divide-x divide-slate-200">
           <div className="pr-2">
-            <p className="min-h-10 text-sm font-medium leading-5 text-slate-600">รับงาน</p>
+            <p className="min-h-10 text-sm font-medium leading-5 text-slate-600">ยังไม่ปิดบรรทุก</p>
             <p className="mt-2 text-2xl font-bold text-blue-600">
               {preparingCount ?? "–"} <span className="text-sm font-medium text-slate-500">ใบ</span>
             </p>
           </div>
           <div className="px-2 sm:px-4">
-            <p className="min-h-10 text-sm font-medium leading-5 text-slate-600">ส่งของ</p>
+            <p className="min-h-10 text-sm font-medium leading-5 text-slate-600">กำลังนำจ่าย</p>
             <p className="mt-2 text-2xl font-bold text-blue-600">
               {deliveringCount ?? "–"} <span className="text-sm font-medium text-slate-500">ใบ</span>
             </p>
           </div>
           <div className="pl-2 sm:pl-4">
-            <p className="min-h-10 text-sm font-medium leading-5 text-slate-600">ส่งสำเร็จวันนี้</p>
-            <p className="mt-2 text-2xl font-bold text-slate-400">
-              – <span className="text-sm font-medium text-slate-500">กล่อง</span>
+            <p className="min-h-10 text-sm font-medium leading-5 text-slate-600">ส่งสำเร็จ</p>
+            <p className="mt-2 whitespace-nowrap text-2xl font-bold text-blue-600">
+              {deliveredCount ?? "–"}<span className="text-base font-semibold text-slate-400">/</span>{deliveryTotal ?? "–"} <span className="text-sm font-medium text-slate-500">SN</span>
             </p>
           </div>
         </div>

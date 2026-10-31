@@ -12,6 +12,7 @@ import MenuJobHistory from "../pages/MenuJobHistory";
 import MenuContact from "../pages/MenuContact";
 import RecipientList from "../pages/RecipientList";
 import RecipientClose from "../pages/RecipientClose";
+import ReturnWarehouse from "../pages/ReturnWarehouse";
 import IssueReason from "../pages/IssueReason";
 import MileageOpen from "../pages/MileageOpen";
 import MileageClose from "../pages/MileageClose";
@@ -31,6 +32,7 @@ function screenFromPath(pathname: string): DriverScreen {
   if (pathname === "/mileage/open") return "MILEAGE_OPEN";
   if (pathname === "/mileage/close") return "MILEAGE_CLOSE";
   if (pathname === "/recipient-close" || pathname.startsWith("/recipient-close/")) return "RECIPIENT_CLOSE";
+  if (pathname === "/returns") return "RETURN_WAREHOUSE";
   if (pathname === "/menu") return "MENU";
   if (pathname === "/menu/profile") return "PROFILE";
   if (pathname === "/menu/job-history") return "JOB_HISTORY";
@@ -50,6 +52,7 @@ function pathFor(screen: DriverScreen, id?: number) {
     case "MILEAGE_OPEN": return "/mileage/open";
     case "MILEAGE_CLOSE": return "/mileage/close";
     case "RECIPIENT_CLOSE": return id ? `/recipient-close/${id}` : "/recipient-close";
+    case "RETURN_WAREHOUSE": return "/returns";
     case "MENU": return "/menu";
     case "PROFILE": return "/menu/profile";
     case "JOB_HISTORY": return "/menu/job-history";
@@ -122,6 +125,7 @@ export default function DriverRoutes() {
       <Route path="/recipients" element={protectedPage(<RecipientList />)} />
       <Route path="/recipient-close" element={protectedPage(<RecipientClose />)} />
       <Route path="/recipient-close/:recipientId" element={protectedPage(<RecipientClose />)} />
+      <Route path="/returns" element={protectedPage(<ReturnWarehouse />)} />
       <Route path="/mileage/open" element={isContractor ? <RouterRedirect to="/recipients" replace /> : <MileageOpen mileage={mileage} loading={mileageLoading} loadError={mileageError} refresh={refreshMileage} />} />
       <Route path="/mileage/close" element={isContractor ? <RouterRedirect to="/recipients" replace /> : <MileageClose mileage={mileage} loading={mileageLoading} loadError={mileageError} refresh={refreshMileage} />} />
       <Route path="/menu" element={<Menu go={go} />} />

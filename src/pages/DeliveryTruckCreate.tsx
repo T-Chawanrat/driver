@@ -3,6 +3,7 @@ import { CarFront, Truck } from "lucide-react";
 import AxiosInstance from "../services/http";
 import { useDriverAuth } from "../context/AuthContext";
 import type { Navigate } from "../types/driver";
+import ConfirmModal from "../components/ConfirmModal";
 import SearchableSelect from "../components/SearchableSelect";
 
 type DriverType = "EMPLOYEE" | "CONTRACTOR";
@@ -21,6 +22,7 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -60,6 +62,13 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const openConfirm = () => {
+    if (!route) return setError("กรุณาเลือกสายรถ");
+    if (driverType === "EMPLOYEE" && !vehicle) return setError("กรุณาเลือกรถ");
+    setError("");
+    setConfirmOpen(true);
   };
 
   const driverName = [driver?.first_name, driver?.last_name].filter(Boolean).join(" ") || driver?.username;
@@ -123,11 +132,20 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
       {error ? <p className="rounded-xl bg-red-50 p-3 text-[15px] font-medium text-red-700">{error}</p> : null}
       <button
         className="h-12 rounded-xl bg-gradient-to-br from-blue-700 to-blue-600 text-[15px] font-bold text-white shadow-lg shadow-blue-600/20 disabled:bg-slate-300 disabled:shadow-none"
-        onClick={() => void create()}
+        onClick={openConfirm}
         disabled={loading || saving || !driverType}
       >
         {saving ? "กำลังสร้าง..." : "สร้างและเริ่มสแกน"}
       </button>
+      <ConfirmModal
+        open={confirmOpen}
+        title="สร้างใบรถกระจาย"
+        description="เมื่อยืนยันแล้ว จะเข้าสู่หน้าสแกน SN"
+        confirmLabel={saving ? "กำลังสร้าง..." : "ยืนยัน"}
+        disabled={saving}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => { setConfirmOpen(false); void create(); }}
+      />
     </section>
   );
 }

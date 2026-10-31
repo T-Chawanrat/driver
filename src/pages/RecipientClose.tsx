@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
-import { Camera, CheckCircle2, FileText, ImagePlus, MapPin, Phone, RotateCcw, ScanLine, TriangleAlert, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, CheckCircle2, FileText, MapPin, Phone, ScanLine, TriangleAlert } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import ConfirmModal from "../components/ConfirmModal";
+import DeliveryEvidenceCard from "../components/DeliveryEvidenceCard";
+import { type SignaturePadHandle } from "../components/SignaturePad";
 import CameraCaptureModal from "../components/camera/CameraCaptureModal";
 import CameraScannerModal from "../components/camera/CameraScannerModal";
 import type { DeliveryRecipient } from "../types/delivery";
 import AxiosInstance from "../services/http";
-import { getDeliveryRecipient } from "../services/deliveries";
+import { completeDriverDeliveries, getDeliveryRecipient } from "../services/deliveries";
+import { getCurrentLocation } from "../utils/location";
 
 type Photo = { file: File; url: string };
 const maxPhotos = 8;
@@ -52,10 +56,9 @@ export default function RecipientClose() {
   const [scanOpen, setScanOpen] = useState(false);
   const [scanFeedback, setScanFeedback] = useState("");
   const [hasSignature, setHasSignature] = useState(false);
-  const photoInput = useRef<HTMLInputElement>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const photoUrls = useRef(new Set<string>());
-  const signature = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
+  const signature = useRef<SignaturePadHandle>(null);
 
   useEffect(() => {
     if (stateRecipient) {
@@ -109,11 +112,6 @@ export default function RecipientClose() {
     setPhotos((current) => [...current, ...additions]);
   };
 
-  const selectTestPhotos = (event: ChangeEvent<HTMLInputElement>) => {
-    addPhotos(Array.from(event.target.files ?? []));
-    event.target.value = "";
-  };
-
   const removePhoto = (url: string) => {
     URL.revokeObjectURL(url);
     photoUrls.current.delete(url);
@@ -121,52 +119,17 @@ export default function RecipientClose() {
     setPhotoError("");
   };
 
-  const signaturePoint = (event: PointerEvent<HTMLCanvasElement>) => {
-    const canvas = event.currentTarget;
-    const bounds = canvas.getBoundingClientRect();
-    return { x: ((event.clientX - bounds.left) * canvas.width) / bounds.width, y: ((event.clientY - bounds.top) * canvas.height) / bounds.height };
-  };
-
-  const startSignature = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    const context = event.currentTarget.getContext("2d");
-    if (!context) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const { x, y } = signaturePoint(event);
-    context.lineWidth = 4;
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.strokeStyle = "#0f172a";
-    context.beginPath();
-    context.moveTo(x, y);
-    context.lineTo(x + 0.01, y + 0.01);
-    context.stroke();
-    drawing.current = true;
-    setHasSignature(true);
-  };
-
-  const drawSignature = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current) return;
-    const context = event.currentTarget.getContext("2d");
-    if (!context) return;
-    const { x, y } = signaturePoint(event);
-    context.lineTo(x, y);
-    context.stroke();
-  };
-
-  const clearSignature = () => {
-    const canvas = signature.current;
-    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
-    drawing.current = false;
-    setHasSignature(false);
-  };
-  const openIssueReason = (bill: { receiveCode: string; receiveBusinessId: number | null; receiveWalkinId: number | null }) => {
+  const openIssueReason = (bill: { receiveCode: string; receiveBusinessId: number | null; receiveWalkinId: number | null; serials: { key: string; serialNo: string; completed: boolean }[] }) => {
     navigate("/issues/new", {
       state: {
         deliveryIssueDraft: {
           receiveCode: bill.receiveCode,
           receiveBusinessId: bill.receiveBusinessId,
           receiveWalkinId: bill.receiveWalkinId,
+          serials: bill.serials.filter((serial) => !serial.completed).map((serial) => {
+            const [serialId] = JSON.parse(serial.key);
+            return { serialId, serialNo: serial.serialNo };
+          }),
         },
       },
     });
@@ -185,24 +148,22 @@ export default function RecipientClose() {
     setSaving(true);
     setNotice("");
     try {
-      const position = navigator.geolocation && window.isSecureContext
-        ? await new Promise<GeolocationPosition | null>((resolve) => navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }))
-        : null;
-      if (!position && !window.confirm("ไม่สามารถรับตำแหน่งได้ กรุณาเปิดสิทธิ์ตำแหน่งหรือตรวจสอบ GPS ต้องการบันทึกโดยไม่มีพิกัดหรือไม่?")) return;
+      const location = await getCurrentLocation();
+      if (!location && !window.confirm("ไม่สามารถรับตำแหน่งได้ กรุณาเปิดสิทธิ์ตำแหน่งหรือตรวจสอบ GPS ต้องการบันทึกโดยไม่มีพิกัดหรือไม่?")) return;
       const body = new FormData();
       body.append("serials", JSON.stringify(selected.map((key) => { const [serial_id, serial_no] = JSON.parse(key); return { serial_id, serial_no }; })));
       for (const photo of photos) body.append("proof_images", photo.file);
-      if (hasSignature && signature.current) {
-        const blob = await new Promise<Blob | null>((resolve) => signature.current!.toBlob(resolve, "image/png"));
+      if (hasSignature) {
+        const blob = await signature.current?.toBlob();
         if (!blob) throw new Error("ไม่สามารถบันทึกลายเซ็นได้");
         body.append("sign_images", blob, "signature.png");
       }
-      if (position) {
-        body.append("lat", String(position.coords.latitude));
-        body.append("lng", String(position.coords.longitude));
-        body.append("accuracy_m", String(position.coords.accuracy));
+      if (location) {
+        body.append("lat", String(location.latitude));
+        body.append("lng", String(location.longitude));
+        body.append("accuracy_m", String(location.accuracy));
       }
-      await AxiosInstance.post("/driver/deliveries/complete", body);
+      await completeDriverDeliveries(body);
       navigate("/recipients", { replace: true });
     } catch (error: any) {
       setNotice(error?.response?.data?.message || error?.message || "ไม่สามารถบันทึกการจัดส่งได้");
@@ -360,93 +321,17 @@ export default function RecipientClose() {
           );
         })}
       </div>
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-bold text-slate-900">
-            รูปการส่ง <span className="text-red-500">*</span>
-          </h2>
-          <span className="text-sm font-semibold text-slate-500">
-            {photos.length}/{maxPhotos} รูป
-          </span>
-        </div>
-        <div className="flex items-stretch gap-2">
-          <button
-            type="button"
-            disabled={photos.length >= maxPhotos}
-            onClick={() => setCameraOpen(true)}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm active:scale-[.99] disabled:opacity-50"
-          >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600"><Camera size={25} /></span>
-            <span className="min-w-0 flex-1"><b className="block text-[15px] text-slate-900">ถ่ายรูปการส่ง</b><span className="text-sm font-medium text-slate-600">เปิดกล้องถ่ายรูป</span></span>
-            <ScanLine className="shrink-0 text-blue-600" size={22} />
-          </button>
-          <button
-            type="button"
-            disabled={photos.length >= maxPhotos}
-            onClick={() => photoInput.current?.click()}
-            className="flex w-20 shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-blue-700 to-blue-600 px-2 text-sm font-bold text-white shadow-sm active:opacity-90 disabled:opacity-50"
-          >
-            <ImagePlus size={18} /> อัปโหลด
-          </button>
-        </div>
-        <input ref={photoInput} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={selectTestPhotos} />
-        {photoError ? (
-          <p role="alert" className="text-sm font-medium text-red-600">
-            {photoError}
-          </p>
-        ) : null}
-        {photos.length ? (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {photos.map((photo, index) => (
-              <div key={photo.url} className="relative aspect-square overflow-hidden rounded-xl bg-slate-100">
-                <img src={photo.url} alt={`รูปการส่ง ${index + 1}`} className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removePhoto(photo.url)}
-                  aria-label={`ลบรูปการส่ง ${index + 1}`}
-                  className="absolute right-1 top-1 grid h-9 w-9 place-items-center rounded-full bg-slate-900/75 text-white"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-bold text-slate-900">
-            ลายเซ็นผู้รับ <span className="text-red-500">*</span>
-          </h2>
-          <button
-            type="button"
-            onClick={clearSignature}
-            disabled={!hasSignature}
-            className="flex min-h-10 items-center gap-1 text-sm font-bold text-blue-700 disabled:text-slate-400"
-          >
-            <RotateCcw size={16} />
-            ล้างลายเซ็น
-          </button>
-        </div>
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <canvas
-            ref={signature}
-            width={900}
-            height={400}
-            aria-label="พื้นที่เซ็นลายเซ็นผู้รับ"
-            className="block h-40 w-full touch-none"
-            onPointerDown={startSignature}
-            onPointerMove={drawSignature}
-            onPointerUp={() => {
-              drawing.current = false;
-            }}
-            onPointerCancel={() => {
-              drawing.current = false;
-            }}
-            onLostPointerCapture={() => {
-              drawing.current = false;
-            }}
-          />
-        </div>
-      </div>
+      <DeliveryEvidenceCard
+        photos={photos}
+        maxPhotos={maxPhotos}
+        photoError={photoError}
+        hasSignature={hasSignature}
+        signatureRef={signature}
+        onAddPhotos={addPhotos}
+        onRemovePhoto={removePhoto}
+        onOpenCamera={() => setCameraOpen(true)}
+        onSignatureChange={setHasSignature}
+      />
       <div className="rounded-xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">
         เลือก {selected.length} กล่อง จาก {selectedBillCount} บิล
       </div>
@@ -461,11 +346,20 @@ export default function RecipientClose() {
       <button
         type="button"
         disabled={!realRecipient || !evidenceReady || saving}
-        onClick={() => void complete()}
+        onClick={() => setConfirmOpen(true)}
         className="h-12 rounded-xl bg-gradient-to-br from-blue-700 to-blue-600 text-[15px] font-bold text-white disabled:opacity-50"
       >
         {saving ? "กำลังบันทึก..." : "ยืนยันปิดงาน"}
       </button>
+      <ConfirmModal
+        open={confirmOpen}
+        title="ยืนยันปิดงาน"
+        description={`ส่งสำเร็จ ${selected.length} SN จาก ${selectedBillCount} บิล`}
+        confirmLabel={saving ? "กำลังบันทึก..." : "ยืนยัน"}
+        disabled={saving}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => { setConfirmOpen(false); void complete(); }}
+      />
       <CameraCaptureModal
         open={cameraOpen}
         title="ถ่ายรูปการส่ง"

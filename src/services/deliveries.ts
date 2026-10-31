@@ -12,6 +12,10 @@ export const getDeliveryRecipient = async (params: Record<string, number | undef
 };
 
 export const getDeliverySummary = async () => {
-  const { data } = await AxiosInstance.get<{ data: { truckCount: number } }>("/driver/deliveries/summary");
+  const { data } = await AxiosInstance.get<{ data: { preparingTruckCount: number; truckCount: number; totalSerialCount: number; deliveredSerialCount: number } }>("/driver/deliveries/summary");
   return data.data;
+};
+
+export const completeDriverDeliveries = async (formData: FormData) => {
+  await AxiosInstance.post("/driver/deliveries/complete", formData);
 };

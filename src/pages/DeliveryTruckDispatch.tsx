@@ -1,7 +1,9 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { Camera, CheckCircle2, ImagePlus, RotateCcw, ScanLine, Truck } from "lucide-react";
+import ConfirmModal from "../components/ConfirmModal";
 import CameraCaptureModal from "../components/camera/CameraCaptureModal";
 import AxiosInstance from "../services/http";
+import { getCurrentLocation } from "../utils/location";
 
 type TruckDetail = {
   truck_code?: string;
@@ -61,18 +63,11 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
       setError("");
       const formData = new FormData();
       formData.append("photo", imageFile);
-      if (navigator.geolocation) {
-        const position = await new Promise<GeolocationPosition | null>((resolve) => {
-          navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-        });
-        if (position) {
-          const { latitude, longitude, accuracy } = position.coords;
-          if (Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(accuracy)) {
-            formData.append("latitude", String(latitude));
-            formData.append("longitude", String(longitude));
-            formData.append("accuracy_m", String(accuracy));
-          }
-        }
+      const location = await getCurrentLocation();
+      if (location) {
+        formData.append("latitude", String(location.latitude));
+        formData.append("longitude", String(location.longitude));
+        formData.append("accuracy_m", String(location.accuracy));
       }
       const { data } = await AxiosInstance.patch(`/driver/delivery-trucks/${id}/close-and-go`, formData);
       setSuccess(data?.message || "ปิดบรรทุกและปล่อยรถสำเร็จ");
@@ -168,25 +163,16 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
       >
         {saving ? "กำลังบันทึก..." : success ? "ปิดบรรทุกและออกนำจ่ายแล้ว" : "ปิดบรรทุกและออกนำจ่าย"}
       </button>
-      {confirmOpen ? (
-        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/50 p-5" role="presentation">
-          <section className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="dispatch-confirm-title">
-            <div className="flex items-start gap-3">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-100 text-blue-700">
-                <CheckCircle2 size={25} />
-              </span>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900" id="dispatch-confirm-title">ยืนยันปิดบรรทุกและออกนำจ่าย</h2>
-                <p className="mt-1 text-[15px] leading-6 text-slate-600">เมื่อยืนยันแล้ว ใบรถจะถูกปิดและเปลี่ยนสถานะเป็นกำลังนำจ่าย ไม่สามารถย้อนกลับจากหน้านี้ได้</p>
-              </div>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button className="h-12 rounded-xl border border-slate-200 text-[15px] font-bold text-slate-600" type="button" onClick={() => setConfirmOpen(false)} disabled={saving}>ยกเลิก</button>
-              <button className="h-12 rounded-xl bg-blue-600 text-[15px] font-bold text-white disabled:bg-slate-300" type="button" disabled={saving} onClick={() => { setConfirmOpen(false); void closeAndGo(); }}>{saving ? "กำลังบันทึก..." : "ยืนยัน"}</button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <ConfirmModal
+        open={confirmOpen}
+        title="ยืนยันปิดบรรทุกและออกนำจ่าย"
+        description="เมื่อยืนยันแล้ว ใบรถจะถูกปิดและเปลี่ยนสถานะเป็นกำลังนำจ่าย ไม่สามารถย้อนกลับจากหน้านี้ได้"
+        icon={<CheckCircle2 size={25} />}
+        confirmLabel={saving ? "กำลังบันทึก..." : "ยืนยัน"}
+        disabled={saving}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => { setConfirmOpen(false); void closeAndGo(); }}
+      />
       <CameraCaptureModal
         open={cameraOpen}
         title="ถ่ายรูปปิดบรรทุก"

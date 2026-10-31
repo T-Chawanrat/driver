@@ -10,6 +10,7 @@ function pageTitle(screen: DriverScreen) {
   if (screen === "DELIVERIES") return "ส่งของ";
   if (screen === "CLOSE") return "ปิดบรรทุกและออกนำจ่าย";
   if (screen === "RECIPIENT_CLOSE") return "ปิดงานจัดส่ง";
+  if (screen === "RETURN_WAREHOUSE") return "คืนสินค้าเข้าคลัง";
   if (screen === "MENU") return "เมนู";
   if (screen === "PROFILE") return "ข้อมูลผู้ขับ";
   if (screen === "JOB_HISTORY") return "ประวัติงาน";
@@ -22,7 +23,7 @@ function pageTitle(screen: DriverScreen) {
 export default function DriverLayout({ children, go, onBack, screen }: DriverLayoutProps) {
   const showTopbar = screen !== "DELIVERY_SCAN" && screen !== "ISSUES";
   const isTaskScreen = ["JOBS", "DELIVERY_CREATE", "DELIVERY_SCAN"].includes(screen);
-  const isDeliveryScreen = ["DELIVERIES", "RECIPIENT_CLOSE"].includes(screen);
+  const isDeliveryScreen = ["DELIVERIES", "RECIPIENT_CLOSE", "RETURN_WAREHOUSE"].includes(screen);
   const isIssueScreen = screen === "ISSUES";
 
   return (

@@ -3,7 +3,9 @@ import { Camera, ImagePlus, LocateFixed, MapPin, ScanLine, X } from "lucide-reac
 import { useNavigate } from "react-router-dom";
 import { useDriverAuth } from "../context/AuthContext";
 import AxiosInstance from "../services/http";
+import { getCurrentLocation } from "../utils/location";
 import { openCamera } from "../utils/scanner";
+import ConfirmModal from "./ConfirmModal";
 import SearchableSelect from "./SearchableSelect";
 
 type Photo = { file: File; url: string };
@@ -46,7 +48,7 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => { getLocation(); }, []);
+  useEffect(() => { void getLocation(); }, []);
 
   useEffect(() => {
     if (!cameraOpen) return;
@@ -103,14 +105,19 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
     }, "image/jpeg", 0.9);
   };
 
-  const getLocation = () => {
+  const getLocation = async () => {
     if (!navigator.geolocation) return setLocationMessage("อุปกรณ์นี้ไม่รองรับตำแหน่ง หรือไม่ได้เปิดผ่าน HTTPS");
     setLocationMessage("กำลังค้นหาตำแหน่ง...");
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { setCoordinates({ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy }); setCurrentLocation(`${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`); setLocationMessage(""); },
-      () => { setCoordinates(null); setCurrentLocation(""); setLocationMessage("ไม่สามารถรับตำแหน่งได้ กรุณาตรวจสอบสิทธิ์ตำแหน่ง"); },
-      { enableHighAccuracy: true, timeout: 15000 },
-    );
+    const location = await getCurrentLocation();
+    if (!location) {
+      setCoordinates(null);
+      setCurrentLocation("");
+      setLocationMessage("ไม่สามารถรับตำแหน่งได้ กรุณาตรวจสอบสิทธิ์ตำแหน่ง");
+      return;
+    }
+    setCoordinates(location);
+    setCurrentLocation(`${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`);
+    setLocationMessage("");
   };
 
   const submit = async () => {
@@ -170,7 +177,7 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
           <div className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 pl-3">
             <MapPin size={19} className="shrink-0 text-slate-500" />
             <span className="min-w-0 flex-1 break-all text-sm font-medium text-slate-700">{currentLocation || "ยังไม่ได้รับตำแหน่ง"}</span>
-            <button type="button" onClick={getLocation} className="m-1 flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-blue-100 px-3 text-sm font-bold text-blue-700 active:bg-blue-200"><LocateFixed size={18} />รับตำแหน่ง</button>
+            <button type="button" onClick={() => void getLocation()} className="m-1 flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-blue-100 px-3 text-sm font-bold text-blue-700 active:bg-blue-200"><LocateFixed size={18} />รับตำแหน่ง</button>
           </div>
         </div>
         {locationMessage && <p className="text-sm text-slate-600">{locationMessage}</p>}
@@ -192,16 +199,14 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
       <button type="button" onClick={() => setConfirmOpen(true)} disabled={!photos.length || (mode === "open" && !vehicleId) || loading || saving || Boolean(loadError) || (mode === "open" ? isOpen : !isOpen)} className="min-h-12 rounded-2xl bg-blue-600 px-4 text-base font-bold text-white disabled:bg-slate-300">{saving ? "กำลังบันทึก..." : mode === "open" ? "ยืนยันเปิดไมล์" : "ยืนยันปิดไมล์"}</button>
       {isOpen && mode === "open" && <button type="button" onClick={() => navigate("/recipients")} className="min-h-12 rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-700">ไปหน้าส่งของ</button>}
       {!isOpen && mode === "close" && <button type="button" onClick={() => navigate("/mileage/open")} className="min-h-12 rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-700">ไปหน้าเปิดไมล์</button>}
-      {confirmOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 px-5" role="dialog" aria-modal="true" aria-labelledby="mileage-confirm-title">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-          <h2 id="mileage-confirm-title" className="text-lg font-bold text-slate-900">{mode === "open" ? "เปิดไมล์" : "ปิดไมล์"}</h2>
-          <p className="mt-2 text-sm font-medium text-slate-600">{mode === "open" ? "ยืนยันเปิดไมล์" : "ยืนยันปิดไมล์"}</p>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => setConfirmOpen(false)} disabled={saving} className="h-12 rounded-xl border border-slate-200 font-bold text-slate-700 disabled:opacity-50">ยกเลิก</button>
-            <button type="button" onClick={() => { setConfirmOpen(false); void submit(); }} disabled={saving} className="h-12 rounded-xl bg-blue-600 font-bold text-white disabled:bg-slate-300">ยืนยัน</button>
-          </div>
-        </div>
-      </div>}
+      <ConfirmModal
+        open={confirmOpen}
+        title={mode === "open" ? "เปิดไมล์" : "ปิดไมล์"}
+        description={mode === "open" ? "ยืนยันเปิดไมล์" : "ยืนยันปิดไมล์"}
+        disabled={saving}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => { setConfirmOpen(false); void submit(); }}
+      />
       {cameraOpen && <div className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label="ถ่ายรูปไมล์">
         <div className="flex items-center justify-between p-5"><b>ถ่ายรูป{mode === "open" ? "เปิดไมล์" : "ปิดไมล์"}</b><button type="button" onClick={() => setCameraOpen(false)} aria-label="ปิดกล้อง" className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><X size={22} /></button></div>
         {cameraError ? <p className="self-center px-8 text-center text-amber-300">{cameraError}</p> : <video ref={video} muted playsInline className="h-full min-h-0 w-full object-contain" />}
