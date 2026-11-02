@@ -235,6 +235,7 @@ export default function RecipientClose() {
         </span>
         <ScanLine className="text-blue-600" size={24} />
       </button>
+      {scanFeedback && <p role="status" className="break-words text-sm font-semibold text-slate-700">{scanFeedback}</p>}
       <div className="grid gap-3">
         {bills.map((bill) => {
           const selectedCount = bill.serials.filter((serial) => selectedSet.has(serial.key)).length;
@@ -371,7 +372,7 @@ export default function RecipientClose() {
         open={scanOpen}
         title="สแกน SN เพื่อเลือก"
         guide="เล็งกล้องไปที่บาร์โค้ดหรือ QR Code"
-        closeOnScan={false}
+        showFrame
         onClose={() => setScanOpen(false)}
         onScan={(value) => {
           const matches = serialsByNumber.get(value.toLocaleUpperCase()) ?? [];
@@ -384,16 +385,6 @@ export default function RecipientClose() {
             setScanFeedback(matches.length ? `SN ${value} มีหลายรายการ กรุณาเลือกด้วยมือ` : `ไม่พบ SN ${value} ของผู้รับรายนี้`);
           }
         }}
-        footer={
-          <div className="grid gap-3 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-center">
-            <p role="status" className="break-words text-sm font-semibold text-white">
-              {scanFeedback || "เล็งกล้องไปที่บาร์โค้ดหรือ QR Code"}
-            </p>
-            <button type="button" onClick={() => setScanOpen(false)} className="h-12 rounded-xl bg-blue-600 text-[15px] font-bold">
-              เสร็จสิ้น
-            </button>
-          </div>
-        }
       />
     </section>
   );

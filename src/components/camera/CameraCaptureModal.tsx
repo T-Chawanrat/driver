@@ -83,15 +83,14 @@ export default function CameraCaptureModal({ open, title, guide, fileName, onClo
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="flex items-center justify-between p-5">
-        <b className="text-base font-bold">{title}</b>
-        <button type="button" onClick={onClose} aria-label="ปิดกล้อง" className="grid h-10 w-10 place-items-center rounded-full bg-white/15">
+    <div className="fixed inset-0 z-[60] h-dvh overflow-hidden bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="absolute right-0 top-0 z-10 pr-[max(20px,env(safe-area-inset-right))] pt-[max(20px,env(safe-area-inset-top))]">
+        <button type="button" onClick={onClose} aria-label="ปิดกล้อง" className="grid h-10 w-10 place-items-center rounded-full bg-slate-950/60 text-white">
           <X size={22} />
         </button>
       </div>
       {error ? (
-        <div className="grid place-content-center justify-items-center gap-4 p-8 text-center">
+        <div className="absolute inset-0 grid place-content-center justify-items-center gap-4 p-8 text-center">
           <AlertTriangle size={28} className="text-amber-300" />
           <p className="max-w-xs leading-6 text-slate-200">{error}</p>
           <button type="button" onClick={onClose} className="rounded-xl bg-blue-600 px-5 py-3 text-[15px] font-bold">
@@ -99,14 +98,14 @@ export default function CameraCaptureModal({ open, title, guide, fileName, onClo
           </button>
         </div>
       ) : (
-        <div className="relative grid place-items-center overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
           <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-          {guide ? <p className="absolute bottom-8 px-5 text-center text-sm font-semibold">{guide}</p> : null}
+          {guide ? <p className="absolute inset-x-0 bottom-36 px-5 text-center text-sm font-semibold drop-shadow-md">{guide}</p> : null}
         </div>
       )}
       {!error ? (
-        <div className="grid place-items-center gap-3 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5">
-          <small className="text-[15px] font-medium text-white/70">แตะปุ่มเพื่อถ่ายรูป</small>
+        <div className="absolute inset-x-0 bottom-0 grid place-items-center gap-3 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5">
+          <small className="text-[15px] font-medium text-white drop-shadow-md">แตะปุ่มเพื่อถ่ายรูป</small>
           <button type="button" onClick={capture} aria-label="ถ่ายรูป" className="grid h-[72px] w-[72px] place-items-center rounded-full border-[3px] border-white bg-transparent p-[5px]">
             <span className="h-14 w-14 rounded-full bg-white" />
           </button>

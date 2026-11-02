@@ -35,7 +35,7 @@ export default function DeliveryEvidenceCard({
   };
 
   return (
-    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-bold text-slate-900">
           รูปการส่ง <span className="text-red-500">*</span>

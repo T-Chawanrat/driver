@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useDriverAuth } from "../context/AuthContext";
 import AxiosInstance from "../services/http";
 import { getCurrentLocation } from "../utils/location";
-import { openCamera } from "../utils/scanner";
+import CameraCaptureModal from "./camera/CameraCaptureModal";
 import ConfirmModal from "./ConfirmModal";
 import SearchableSelect from "./SearchableSelect";
 
@@ -34,9 +34,7 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const photoUrls = useRef(new Set<string>());
-  const video = useRef<HTMLVideoElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   const maxPhotos = mode === "open" ? 2 : 5;
   const isOpen = Boolean(currentMileage);
   const name = [driver?.first_name, driver?.last_name].filter(Boolean).join(" ") || driver?.username || "พนักงานขับรถ";
@@ -49,18 +47,6 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
   }, []);
 
   useEffect(() => { void getLocation(); }, []);
-
-  useEffect(() => {
-    if (!cameraOpen) return;
-    let cancelled = false;
-    let stream: MediaStream | undefined;
-    void openCamera("photo").then(async (result) => {
-      if (cancelled) { result.getTracks().forEach((track) => track.stop()); return; }
-      stream = result;
-      if (video.current) { video.current.srcObject = result; await video.current.play(); }
-    }).catch(() => { if (!cancelled) setCameraError("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบ HTTPS และสิทธิ์กล้อง"); });
-    return () => { cancelled = true; stream?.getTracks().forEach((track) => track.stop()); };
-  }, [cameraOpen]);
 
   useEffect(() => {
     let active = true;
@@ -87,22 +73,6 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     addFiles(files);
-  };
-
-  const capturePhoto = () => {
-    const camera = video.current;
-    if (!camera?.videoWidth || !camera.videoHeight) return setCameraError("กล้องยังไม่พร้อม กรุณาลองอีกครั้ง");
-    const canvas = document.createElement("canvas");
-    canvas.width = camera.videoWidth;
-    canvas.height = camera.videoHeight;
-    const context = canvas.getContext("2d");
-    if (!context) return setCameraError("ไม่สามารถถ่ายรูปได้ กรุณาลองอีกครั้ง");
-    context.drawImage(camera, 0, 0);
-    canvas.toBlob((blob) => {
-      if (!blob) return setCameraError("ไม่สามารถถ่ายรูปได้ กรุณาลองอีกครั้ง");
-      addFiles([new File([blob], `mileage-${Date.now()}.jpg`, { type: "image/jpeg" })]);
-      setCameraOpen(false);
-    }, "image/jpeg", 0.9);
   };
 
   const getLocation = async () => {
@@ -185,7 +155,7 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex justify-between gap-2 text-base font-bold text-slate-900"><span>รูป{mode === "open" ? "เปิดไมล์" : "ปิดไมล์"} <span className="text-red-500">*</span></span><span className="text-sm text-slate-500">{photos.length}/{maxPhotos}</span></div>
         <div className="mt-3 flex items-stretch gap-2">
-          <button type="button" disabled={photos.length >= maxPhotos} onClick={() => { setCameraError(""); setCameraOpen(true); }} className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm disabled:opacity-50">
+          <button type="button" disabled={photos.length >= maxPhotos} onClick={() => setCameraOpen(true)} className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm disabled:opacity-50">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600"><Camera size={25} /></span>
             <span className="min-w-0 flex-1"><b className="block text-[15px] text-slate-900">ถ่ายรูป{mode === "open" ? "เปิดไมล์" : "ปิดไมล์"}</b><span className="text-sm font-medium text-slate-600">เปิดกล้องถ่ายรูป</span></span>
             <ScanLine className="shrink-0 text-blue-600" size={22} />
@@ -207,11 +177,13 @@ export default function MileageForm({ mode, mileage: currentMileage, loading, lo
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => { setConfirmOpen(false); void submit(); }}
       />
-      {cameraOpen && <div className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label="ถ่ายรูปไมล์">
-        <div className="flex items-center justify-between p-5"><b>ถ่ายรูป{mode === "open" ? "เปิดไมล์" : "ปิดไมล์"}</b><button type="button" onClick={() => setCameraOpen(false)} aria-label="ปิดกล้อง" className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><X size={22} /></button></div>
-        {cameraError ? <p className="self-center px-8 text-center text-amber-300">{cameraError}</p> : <video ref={video} muted playsInline className="h-full min-h-0 w-full object-contain" />}
-        <div className="flex justify-center p-6"><button type="button" disabled={Boolean(cameraError)} onClick={capturePhoto} className="rounded-2xl bg-blue-600 px-8 py-3 font-bold text-white disabled:bg-slate-600">ถ่ายรูป</button></div>
-      </div>}
+      <CameraCaptureModal
+        open={cameraOpen}
+        title={mode === "open" ? "ถ่ายรูปเปิดไมล์" : "ถ่ายรูปปิดไมล์"}
+        fileName={`mileage-${Date.now()}.jpg`}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(file) => addFiles([file])}
+      />
     </section>
   );
 }

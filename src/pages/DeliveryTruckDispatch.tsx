@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { Camera, CheckCircle2, ImagePlus, RotateCcw, ScanLine, Truck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import ConfirmModal from "../components/ConfirmModal";
 import CameraCaptureModal from "../components/camera/CameraCaptureModal";
 import AxiosInstance from "../services/http";
@@ -14,12 +15,12 @@ type TruckDetail = {
 };
 
 export default function DeliveryTruckDispatch({ id }: { id?: number }) {
+  const navigate = useNavigate();
   const [truck, setTruck] = useState<TruckDetail | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -44,7 +45,6 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
     if (imageUrl) URL.revokeObjectURL(imageUrl);
     setImageFile(file);
     setImageUrl(URL.createObjectURL(file));
-    setSuccess("");
     setError("");
   };
 
@@ -69,8 +69,8 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
         formData.append("longitude", String(location.longitude));
         formData.append("accuracy_m", String(location.accuracy));
       }
-      const { data } = await AxiosInstance.patch(`/driver/delivery-trucks/${id}/close-and-go`, formData);
-      setSuccess(data?.message || "ปิดบรรทุกและปล่อยรถสำเร็จ");
+      await AxiosInstance.patch(`/driver/delivery-trucks/${id}/close-and-go`, formData);
+      navigate("/recipients", { replace: true });
     } catch (requestError) {
       const message = requestError as { response?: { data?: { message?: string } } };
       setError(message.response?.data?.message || (requestError instanceof Error ? requestError.message : "ไม่สามารถปิดบรรทุกและปล่อยรถได้"));
@@ -154,14 +154,13 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
         <span>ตรวจสอบรูปและรายการสินค้าให้ครบก่อนปิดบรรทุกและออกนำจ่าย</span>
       </div>
       {error ? <p className="rounded-xl bg-red-50 p-3 text-[15px] font-medium text-red-700">{error}</p> : null}
-      {success ? <p className="rounded-xl bg-emerald-50 p-3 text-[15px] font-bold text-emerald-700">{success}</p> : null}
       <button
         className="h-12 rounded-xl bg-gradient-to-br from-blue-700 to-blue-600 text-[15px] font-bold text-white shadow-lg shadow-blue-600/20 disabled:bg-slate-300 disabled:shadow-none"
         type="button"
-        disabled={!imageFile || saving || Boolean(success)}
+        disabled={!imageFile || saving}
         onClick={() => setConfirmOpen(true)}
       >
-        {saving ? "กำลังบันทึก..." : success ? "ปิดบรรทุกและออกนำจ่ายแล้ว" : "ปิดบรรทุกและออกนำจ่าย"}
+        {saving ? "กำลังบันทึก..." : "ปิดบรรทุกและออกนำจ่าย"}
       </button>
       <ConfirmModal
         open={confirmOpen}
@@ -176,7 +175,6 @@ export default function DeliveryTruckDispatch({ id }: { id?: number }) {
       <CameraCaptureModal
         open={cameraOpen}
         title="ถ่ายรูปปิดบรรทุก"
-        guide="จัดภาพบรรทุกสินค้าให้อยู่ในกรอบ"
         fileName="truck-close.jpg"
         onClose={() => setCameraOpen(false)}
         onCapture={setImage}

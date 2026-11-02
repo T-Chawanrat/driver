@@ -68,13 +68,13 @@ const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(({ onChan
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="h-40 w-full shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
       <canvas
         ref={canvas}
         width={900}
         height={400}
         aria-label="พื้นที่เซ็นลายเซ็นผู้รับ"
-        className="block h-40 w-full touch-none"
+        className="block h-full w-full touch-none"
         onPointerDown={start}
         onPointerMove={draw}
         onPointerUp={() => { drawing.current = false; }}

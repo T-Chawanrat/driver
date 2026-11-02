@@ -88,15 +88,14 @@ export default function CameraScannerModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] grid grid-rows-[auto_1fr_auto] bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="flex items-center justify-between p-5">
-        <b className="text-base font-bold">{title}</b>
-        <button type="button" onClick={onClose} aria-label="ปิดกล้อง" className="grid h-10 w-10 place-items-center rounded-full bg-white/15">
+    <div className="fixed inset-0 z-[60] h-dvh overflow-hidden bg-slate-950 text-white" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="absolute right-0 top-0 z-10 pr-[max(20px,env(safe-area-inset-right))] pt-[max(20px,env(safe-area-inset-top))]">
+        <button type="button" onClick={onClose} aria-label="ปิดกล้อง" className="grid h-10 w-10 place-items-center rounded-full bg-slate-950/60 text-white">
           <X size={22} />
         </button>
       </div>
       {error ? (
-        <div className="grid place-content-center justify-items-center gap-4 p-8 text-center">
+        <div className="absolute inset-0 grid place-content-center justify-items-center gap-4 p-8 text-center">
           <AlertTriangle size={28} className="text-amber-300" />
           <p className="max-w-xs leading-6 text-slate-200">{error}</p>
           <button type="button" onClick={onClose} className="rounded-xl bg-blue-600 px-5 py-3 text-[15px] font-bold">
@@ -104,8 +103,8 @@ export default function CameraScannerModal({
           </button>
         </div>
       ) : (
-        <div className="relative grid place-items-center overflow-hidden">
-          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+        <div className="absolute inset-0 grid place-items-center overflow-hidden">
+          <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 h-full w-full object-cover" />
           {showFrame ? (
             <div className="absolute aspect-square w-[min(78vw,330px)] shadow-[0_0_0_999px_rgb(15_23_42_/_0.12)]" aria-hidden="true">
               <span className="absolute left-0 top-0 h-9 w-9 border-l-4 border-t-4 border-white" />
@@ -114,12 +113,10 @@ export default function CameraScannerModal({
               <span className="absolute bottom-0 right-0 h-9 w-9 border-b-4 border-r-4 border-white" />
             </div>
           ) : null}
-          <p className="absolute bottom-8 px-5 text-center text-sm font-semibold">{guide}</p>
+          {!footer && <p className="absolute bottom-[max(32px,env(safe-area-inset-bottom))] px-5 text-center text-sm font-semibold drop-shadow-md">{guide}</p>}
         </div>
       )}
-      {!error
-        ? footer ?? (showFrame ? null : <p className="px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-center text-sm font-semibold text-white/80">{guide}</p>)
-        : null}
+      {!error && footer ? <div className="absolute inset-x-0 bottom-0">{footer}</div> : null}
     </div>
   );
 }
