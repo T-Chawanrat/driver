@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Box, ChevronLeft, House, Menu, TriangleAlert, Truck } from "lucide-react";
 import type { DriverScreen, Navigate } from "../types/driver";
 
@@ -21,6 +21,20 @@ function pageTitle(screen: DriverScreen) {
 }
 
 export default function DriverLayout({ children, go, onBack, screen }: DriverLayoutProps) {
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => setKeyboardOpen(window.innerHeight - viewport.height > 150 && document.activeElement instanceof HTMLElement && document.activeElement.matches("input, textarea, [contenteditable='true']"));
+    viewport.addEventListener("resize", update);
+    document.addEventListener("focusin", update);
+    document.addEventListener("focusout", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      document.removeEventListener("focusin", update);
+      document.removeEventListener("focusout", update);
+    };
+  }, []);
   const showTopbar = screen !== "DELIVERY_SCAN" && screen !== "ISSUES";
   const isTaskScreen = ["JOBS", "DELIVERY_CREATE", "DELIVERY_SCAN"].includes(screen);
   const isDeliveryScreen = ["DELIVERIES", "RECIPIENT_CLOSE", "RETURN_WAREHOUSE"].includes(screen);
@@ -47,7 +61,7 @@ export default function DriverLayout({ children, go, onBack, screen }: DriverLay
         </header>
       )}
       <div className="mx-auto w-full max-w-[760px]">{children}</div>
-      <nav className="fixed bottom-0 left-1/2 z-40 grid h-[72px] w-full max-w-[760px] -translate-x-1/2 grid-cols-5 border-t border-slate-200 bg-white px-1 pt-1.5 shadow-[0_-3px_14px_rgb(15_23_42_/_0.06)]">
+      {!keyboardOpen && <nav className="fixed bottom-0 left-1/2 z-40 grid h-[72px] w-full max-w-[760px] -translate-x-1/2 grid-cols-5 border-t border-slate-200 bg-white px-1 pt-1.5 shadow-[0_-3px_14px_rgb(15_23_42_/_0.06)]">
         <button
           className={`grid content-center justify-items-center gap-1 text-[11px] font-semibold ${screen === "HOME" ? "text-blue-600" : "text-slate-500"}`}
           onClick={() => go("HOME")}
@@ -86,7 +100,7 @@ export default function DriverLayout({ children, go, onBack, screen }: DriverLay
           <Menu size={30} />
           <span>เมนู</span>
         </button>
-      </nav>
+      </nav>}
     </main>
   );
 }

@@ -336,9 +336,6 @@ export default function RecipientClose() {
       <div className="rounded-xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">
         เลือก {selected.length} กล่อง จาก {selectedBillCount} บิล
       </div>
-      {selectedBills.length > 0 && !evidenceReady && (
-        <p className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">แต่ละบิลที่เลือกต้องมีรูปและลายเซ็น โดยรูปส่งงานไม่เกิน 8 รูป และลายเซ็นไม่เกิน 4 รูปต่อบิล</p>
-      )}
       {notice && (
         <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">
           {notice}

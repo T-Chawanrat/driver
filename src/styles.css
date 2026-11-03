@@ -13,6 +13,8 @@ body,
 
 body {
   margin: 0;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   background: #e9eef6;
   color: #1e293b;
   font-family: Sarabun, system-ui, sans-serif;

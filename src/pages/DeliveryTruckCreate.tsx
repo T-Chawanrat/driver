@@ -99,11 +99,10 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
               required
               value={vehicle}
               onChange={setVehicle}
-              placeholder="ค้นหาทะเบียนรถหรือจังหวัด"
+              placeholder="เลือกทะเบียนรถ"
               options={vehicles.map((item) => ({
                 value: String(item.id),
                 label: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" · "),
-                searchText: [item.license_plate, item.license_plate_province, item.model].filter(Boolean).join(" "),
               }))}
             />
           ) : (
@@ -120,11 +119,10 @@ export default function DeliveryTruckCreate({ go }: { go: Navigate }) {
             required
             value={route}
             onChange={setRoute}
-            placeholder="ค้นหารหัสหรือชื่อสายรถ"
+            placeholder="เลือกสายรถ"
             options={routes.map((item) => ({
               value: String(item.route_id),
               label: [item.route_code, item.route_name].filter(Boolean).join(" - "),
-              searchText: [item.route_code, item.route_name].filter(Boolean).join(" "),
             }))}
           />
         </>

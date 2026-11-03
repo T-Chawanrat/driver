@@ -89,6 +89,10 @@ export default function CameraCaptureModal({ open, title, guide, fileName, onClo
           <X size={22} />
         </button>
       </div>
+      <div className="absolute inset-0 overflow-hidden">
+        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+        {guide && !error ? <p className="absolute inset-x-0 bottom-36 px-5 text-center text-sm font-semibold drop-shadow-md">{guide}</p> : null}
+      </div>
       {error ? (
         <div className="absolute inset-0 grid place-content-center justify-items-center gap-4 p-8 text-center">
           <AlertTriangle size={28} className="text-amber-300" />
@@ -97,12 +101,7 @@ export default function CameraCaptureModal({ open, title, guide, fileName, onClo
             กลับ
           </button>
         </div>
-      ) : (
-        <div className="absolute inset-0 overflow-hidden">
-          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-          {guide ? <p className="absolute inset-x-0 bottom-36 px-5 text-center text-sm font-semibold drop-shadow-md">{guide}</p> : null}
-        </div>
-      )}
+      ) : null}
       {!error ? (
         <div className="absolute inset-x-0 bottom-0 grid place-items-center gap-3 px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-5">
           <small className="text-[15px] font-medium text-white drop-shadow-md">แตะปุ่มเพื่อถ่ายรูป</small>
