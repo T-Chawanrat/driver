@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, Truck } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useDriverAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -36,9 +36,7 @@ export default function Login() {
     <main className="min-h-dvh w-full bg-slate-50 font-[Sarabun,sans-serif] text-slate-900">
       <form className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-center px-6 py-10 sm:px-8 md:max-w-[460px] md:px-8 md:py-14" onSubmit={handleSubmit}>
         <div className="grid justify-items-center gap-2 text-center">
-          <span className="grid h-[68px] w-[68px] place-items-center rounded-2xl bg-gradient-to-br from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-600/25">
-            <Truck size={34} strokeWidth={2.2} />
-          </span>
+          <img className="h-[68px] w-[68px] rounded-2xl object-contain shadow-lg shadow-blue-600/25" src="/icons/favicon.png" alt="TMS Driver" />
           <h1 className="mt-2 text-[28px] font-bold leading-none tracking-tight">TMS Driver</h1>
           <p className="text-[15px] font-medium text-slate-500">ระบบงานจัดส่งสำหรับคนขับ</p>
         </div>
